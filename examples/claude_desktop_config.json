@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "minicut": {
+      "command": "/абсолютный/путь/к/node",
+      "args": ["/абсолютный/путь/к/minicut/src/mcp.js"]
+    }
+  }
+}
