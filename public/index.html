@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>minicut</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect fill='%231a1c25' width='16' height='16'/%3E%3Cpath fill='%23e5564a' d='M3 3h4v10H3zM9 6h4v7H9z'/%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="/fonts/fonts.css" />
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/organic.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <div class="brand" role="img" aria-label="minicut">
+          <span aria-hidden="true">M<i>i</i>N<i>i</i>C<i>u</i>T</span>
+        </div>
+        <details class="project-menu" id="project-menu">
+          <summary id="project-btn">untitled</summary>
+          <div class="project-pop">
+            <div class="subhead">Проекты</div>
+            <ul id="project-list" class="file-list"></ul>
+            <form id="project-create" class="stack-form tight">
+              <label for="project-name">Имя</label>
+              <input
+                id="project-name"
+                type="text"
+                maxlength="80"
+                placeholder="reel-a"
+                autocomplete="off"
+                spellcheck="false"
+              />
+              <div class="row">
+                <button type="submit">Новый</button>
+                <button type="button" id="project-save">Сохранить как</button>
+              </div>
+            </form>
+          </div>
+        </details>
+        <div class="transport">
+          <button type="button" id="play-btn" class="icon-btn" aria-label="Воспроизведение">
+            <svg id="icon-play" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+              <path d="M4 2.4v11.2L13.2 8z" fill="currentColor" />
+            </svg>
+            <svg id="icon-pause" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" hidden>
+              <path d="M3.2 2.2h3.2v11.6H3.2zM9.6 2.2h3.2v11.6H9.6z" fill="currentColor" />
+            </svg>
+          </button>
+          <span id="speed" class="speed" hidden>1×</span>
+          <span id="timecode" class="timecode">00:00.000</span>
+          <span class="timecode dim">/</span>
+          <span id="duration" class="timecode dim">00:00.000</span>
+        </div>
+        <div class="top-actions">
+          <button type="button" id="undo-btn" title="Отменить (⌘Z)">Отменить</button>
+          <button type="button" id="redo-btn" title="Повторить (⌘⇧Z)">Повторить</button>
+          <span id="progress-label" class="progress-label" hidden></span>
+          <button type="button" id="cancel-render" hidden>Отмена</button>
+          <button type="button" id="quick-preview">Быстрый предпросмотр</button>
+          <button type="button" id="open-export" class="primary">Экспорт</button>
+        </div>
+        <div id="progress" class="progress" hidden>
+          <div id="progress-bar" class="progress-bar"></div>
+        </div>
+      </header>
+
+      <aside class="library">
+        <div class="panel-head">Библиотека</div>
+        <form id="import-form" class="stack-form">
+          <label for="import-path">Импорт по пути</label>
+          <div class="row">
+            <input
+              id="import-path"
+              class="mono"
+              type="text"
+              placeholder="/путь/к/файлу.mp4"
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <button type="submit" class="primary">Импорт</button>
+          </div>
+        </form>
+        <form id="browse-form" class="stack-form">
+          <label for="browse-path">Папка с видео</label>
+          <div class="row">
+            <input
+              id="browse-path"
+              class="mono"
+              type="text"
+              placeholder="/путь/к/папке"
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <button type="submit">Открыть</button>
+          </div>
+        </form>
+        <label class="add-track" for="add-track"
+          >На дорожку
+          <select id="add-track">
+            <option value="main">Main</option>
+            <option value="overlay">Overlay</option>
+          </select>
+        </label>
+        <div class="library-scroll">
+          <div id="browse-block" hidden>
+            <div class="subhead">В папке</div>
+            <ul id="browse-list" class="file-list"></ul>
+          </div>
+          <div class="subhead">Медиа</div>
+          <ul id="media-list" class="file-list"></ul>
+        </div>
+        <p id="status" class="status" role="status"></p>
+      </aside>
+
+      <main id="stage" class="stage">
+        <div class="canvas-box" id="canvas-box">
+          <video id="preview-a" class="preview-video preview-main" playsinline preload="auto"></video>
+          <video id="preview-b" class="preview-video preview-main" playsinline preload="auto"></video>
+          <div id="captions" class="captions"></div>
+          <div class="safe-zone" title="Безопасная зона"></div>
+          <div id="stage-empty" class="stage-empty">
+            Импортируйте видео и добавьте его на таймлайн. Холст 1080×1920
+          </div>
+          <div id="stage-meta" class="stage-meta"></div>
+        </div>
+      </main>
+
+      <aside class="inspector">
+        <section class="panel">
+          <div class="panel-head">Клип</div>
+          <p id="clip-empty" class="empty-note">Выберите клип на таймлайне</p>
+          <form id="clip-form" class="panel-body" hidden>
+            <div id="clip-heading" class="clip-heading"></div>
+            <label class="field"
+              >Масштаб
+              <span class="pair">
+                <input id="prop-scale" type="range" min="0.25" max="8" step="0.01" value="1" />
+                <input id="prop-scale-n" type="number" min="0.05" max="8" step="0.01" value="1" />
+              </span>
+            </label>
+            <div class="grid-2">
+              <label class="field"
+                >X
+                <span class="pair">
+                  <input id="prop-x" type="range" min="-2" max="2" step="0.01" value="0" />
+                  <input id="prop-x-n" type="number" min="-4" max="4" step="0.01" value="0" />
+                </span>
+              </label>
+              <label class="field"
+                >Y
+                <span class="pair">
+                  <input id="prop-y" type="range" min="-2" max="2" step="0.01" value="0" />
+                  <input id="prop-y-n" type="number" min="-4" max="4" step="0.01" value="0" />
+                </span>
+              </label>
+            </div>
+            <label class="field"
+              >Громкость
+              <span class="pair">
+                <input id="prop-volume" type="range" min="0" max="2" step="0.01" value="1" />
+                <input id="prop-volume-n" type="number" min="0" max="2" step="0.01" value="1" />
+              </span>
+            </label>
+            <label class="check" for="prop-mute">
+              <input id="prop-mute" type="checkbox" />
+              Без звука
+            </label>
+            <div class="grid-2">
+              <label class="field"
+                >Fade in, с
+                <input id="prop-fade-in" type="number" min="0" step="0.01" value="0" />
+              </label>
+              <label class="field"
+                >Fade out, с
+                <input id="prop-fade-out" type="number" min="0" step="0.01" value="0" />
+              </label>
+            </div>
+            <button type="button" id="clip-delete">Удалить</button>
+          </form>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">Текст</div>
+          <div class="panel-body">
+            <form id="subs-form" class="stack-form tight">
+              <label for="subs-path">Импорт .srt / .ass</label>
+              <div class="row">
+                <input
+                  id="subs-path"
+                  class="mono"
+                  type="text"
+                  placeholder="/путь/к/файлу.srt"
+                  autocomplete="off"
+                  spellcheck="false"
+                />
+                <button type="submit">Импорт</button>
+              </div>
+            </form>
+            <p id="text-empty" class="empty-note">Подписей пока нет</p>
+            <ul id="text-list" class="file-list"></ul>
+            <form id="text-form" hidden>
+              <label class="field" for="text-body"
+                >Текст
+                <textarea id="text-body" rows="3"></textarea>
+              </label>
+              <div class="grid-2">
+                <label class="field" for="text-start"
+                  >Начало, с
+                  <input id="text-start" type="number" min="0" step="0.001" />
+                </label>
+                <label class="field" for="text-end"
+                  >Конец, с
+                  <input id="text-end" type="number" min="0" step="0.001" />
+                </label>
+              </div>
+              <div class="row">
+                <button type="submit" class="primary">Сохранить</button>
+                <button type="button" id="text-delete">Удалить</button>
+              </div>
+            </form>
+            <button type="button" id="text-add">Добавить подпись</button>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head" id="style-heading">Стиль «sub»</div>
+          <form id="style-form" class="panel-body">
+            <label class="field" for="style-font"
+              >Шрифт
+              <input id="style-font" type="text" autocomplete="off" spellcheck="false" />
+            </label>
+            <div class="grid-2">
+              <label class="field" for="style-size"
+                >Размер
+                <input id="style-size" type="number" min="1" max="400" step="1" />
+              </label>
+              <label class="field" for="style-align"
+                >Выравнивание
+                <select id="style-align">
+                  <option value="left">Слева</option>
+                  <option value="center">Центр</option>
+                  <option value="right">Справа</option>
+                </select>
+              </label>
+            </div>
+            <label class="field"
+              >Цвет
+              <span class="pair">
+                <input id="style-color-pick" type="color" value="#F3E9DC" aria-label="Выбор цвета" />
+                <input id="style-color" class="mono" type="text" spellcheck="false" />
+              </span>
+            </label>
+            <div class="grid-2">
+              <label class="field"
+                >Позиция X
+                <span class="pair">
+                  <input id="style-x" type="range" min="0" max="1" step="0.01" value="0.5" />
+                  <input id="style-x-n" type="number" min="0" max="1" step="0.01" value="0.5" />
+                </span>
+              </label>
+              <label class="field"
+                >Позиция Y
+                <span class="pair">
+                  <input id="style-y" type="range" min="0" max="1" step="0.01" value="0.64" />
+                  <input id="style-y-n" type="number" min="0" max="1" step="0.01" value="0.64" />
+                </span>
+              </label>
+            </div>
+            <div class="subhead">Тень</div>
+            <div class="grid-2">
+              <label class="field" for="style-dx"
+                >Сдвиг X
+                <input id="style-dx" type="number" step="1" value="3" />
+              </label>
+              <label class="field" for="style-dy"
+                >Сдвиг Y
+                <input id="style-dy" type="number" step="1" value="3" />
+              </label>
+              <label class="field" for="style-blur"
+                >Размытие
+                <input id="style-blur" type="number" min="0" step="1" value="6" />
+              </label>
+              <label class="field" for="style-shadow"
+                >Цвет тени
+                <input id="style-shadow" class="mono" type="text" spellcheck="false" value="#000000AA" />
+              </label>
+            </div>
+          </form>
+        </section>
+      </aside>
+
+      <section class="timeline-wrap">
+        <div class="timeline-toolbar">
+          <span class="toolbar-title">Таймлайн</span>
+          <label class="zoom-label" for="zoom"
+            >Масштаб
+            <input id="zoom" type="range" min="16" max="280" step="1" value="72" />
+          </label>
+          <button type="button" id="add-overlay-track">+ Дорожка</button>
+          <form id="silence-form" class="silence-form">
+            <label for="silence-db"
+              >Порог, дБ
+              <input id="silence-db" type="number" step="1" value="-30" />
+            </label>
+            <label for="silence-dur"
+              >Мин., с
+              <input id="silence-dur" type="number" min="0.05" step="0.05" value="0.4" />
+            </label>
+            <button type="submit" id="silence-btn">Убрать паузы</button>
+          </form>
+          <p class="hint">
+            Пробел — пуск · ← → кадр · S — разрезать · Delete — удалить · Shift/⌘ клик и рамка · J K L · ⌘Z
+          </p>
+        </div>
+        <div class="timeline-body">
+          <div class="gutter-col">
+            <div class="gutter-ruler"></div>
+            <div id="gutter-scroll" class="gutter-scroll">
+              <div id="gutter" class="gutter"></div>
+            </div>
+          </div>
+          <div id="lane" class="lane">
+            <div id="ruler-viewport" class="ruler-viewport">
+              <div id="ruler" class="ruler"></div>
+            </div>
+            <div id="timeline-scroll" class="timeline-scroll">
+              <div id="timeline-inner" class="timeline-inner">
+                <div id="track-rows"></div>
+                <div id="marquee" class="marquee" hidden></div>
+                <div id="snap-line" class="snap-line" hidden></div>
+              </div>
+            </div>
+            <div id="playhead" class="playhead" title="Плейхед">
+              <div class="playhead-head"></div>
+              <div class="playhead-line"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <dialog id="export-dialog">
+      <form id="export-form">
+        <h2>Экспорт</h2>
+        <label class="field" for="export-path"
+          >Файл
+          <input
+            id="export-path"
+            class="mono"
+            type="text"
+            placeholder="/путь/к/ролику.mp4"
+            autocomplete="off"
+            spellcheck="false"
+          />
+        </label>
+        <div class="grid-2">
+          <label class="field" for="export-width"
+            >Ширина
+            <input id="export-width" type="number" min="2" step="2" value="1080" />
+          </label>
+          <label class="field" for="export-height"
+            >Высота
+            <input id="export-height" type="number" min="2" step="2" value="1920" />
+          </label>
+          <label class="field" for="export-fps"
+            >Кадров/с
+            <input id="export-fps" type="number" min="1" max="120" step="1" value="30" />
+          </label>
+          <label class="field" for="export-crf"
+            >Качество, CRF
+            <input id="export-crf" type="number" min="0" max="51" step="1" value="18" />
+          </label>
+        </div>
+        <label class="check" for="export-loudnorm">
+          <input id="export-loudnorm" type="checkbox" />
+          Нормализовать громкость (loudnorm)
+        </label>
+        <div id="export-progress" class="export-progress" hidden>
+          <div id="export-progress-bar" class="export-progress-bar"></div>
+        </div>
+        <p id="export-progress-label" class="progress-label"></p>
+        <div class="dialog-actions">
+          <button type="button" id="export-close">Закрыть</button>
+          <button type="button" id="export-cancel" disabled>Отмена</button>
+          <button type="button" id="export-preview">Быстрый предпросмотр</button>
+          <button type="submit" id="export-btn" class="primary">Экспорт</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="preview-dialog">
+      <h2>Быстрый предпросмотр</h2>
+      <video id="proxy-video" controls playsinline></video>
+      <div class="dialog-actions">
+        <button type="button" id="preview-close">Закрыть</button>
+      </div>
+    </dialog>
+    <script src="/js/main.js" type="module"></script>
+  </body>
+</html>

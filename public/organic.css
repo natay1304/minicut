@@ -1,0 +1,236 @@
+/* Стиль «органика + код»: сплошные плашки, точечный растр, узлы и линии датавиза.
+   Цвета берутся из токенов в styles.css (ink / paper / accent / accent-2). */
+
+body {
+  letter-spacing: 0.005em;
+}
+
+/* Заголовки и подписи */
+.brand {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 24px;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  color: var(--paper);
+}
+.brand i {
+  font-style: italic;
+  color: var(--accent);
+}
+
+.panel-head,
+.subhead,
+.toolbar-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-ui);
+  font-weight: 800;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--accent-2);
+}
+.panel-head::before,
+.toolbar-title::before {
+  content: '';
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+dialog h2 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 26px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.timecode,
+.speed,
+.tick span,
+.clip-meta,
+input.mono {
+  font-family: var(--font-mono);
+}
+.timecode {
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--paper);
+}
+.timecode.dim,
+.dim {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+/* Кнопки — сплошные плашки без рамок */
+button {
+  font-family: var(--font-ui);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  border: 0;
+  border-radius: 4px;
+  background: var(--line);
+  color: var(--paper);
+}
+button:hover:not(:disabled) {
+  background: var(--line-strong);
+  border-color: transparent;
+}
+button.primary {
+  background: var(--paper);
+  color: var(--paper-ink);
+}
+button.primary:hover:not(:disabled) {
+  background: var(--accent-2);
+  filter: none;
+}
+.icon-btn {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-radius: 50%;
+}
+.icon-btn:hover:not(:disabled) {
+  background: var(--paper);
+}
+
+input,
+select,
+textarea {
+  border: 0;
+  border-radius: 4px;
+  background: var(--sunken);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+input:focus,
+select:focus,
+textarea:focus {
+  box-shadow: inset 0 0 0 1px var(--accent-2);
+}
+
+/* Точечный растр (halftone) на пустых местах */
+.stage {
+  background-color: var(--sunken);
+  background-image: radial-gradient(circle, var(--dot) 2px, transparent 2.5px);
+  background-size: 18px 18px;
+}
+.track {
+  background-image: radial-gradient(circle, var(--dot) 1.4px, transparent 1.9px);
+  background-size: 14px 14px;
+  background-position: 7px 7px;
+}
+.canvas-box {
+  box-shadow: 0 0 0 3px var(--paper);
+  border-radius: 6px;
+}
+
+/* Клипы: сплошной цвет и растр, рассыпающийся к правому краю */
+.clip {
+  border: 0;
+  border-radius: 4px;
+  color: var(--paper);
+}
+.clip::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, rgba(243, 233, 220, 0.3) 1.6px, transparent 2.1px);
+  background-size: 10px 10px;
+  -webkit-mask-image: linear-gradient(90deg, transparent 35%, #000);
+  mask-image: linear-gradient(90deg, transparent 35%, #000);
+  pointer-events: none;
+}
+.clip.is-selected {
+  box-shadow: inset 0 0 0 2px var(--paper);
+}
+.clip.is-primary {
+  box-shadow:
+    inset 0 0 0 2px var(--paper),
+    0 0 0 2px var(--accent);
+}
+.clip-body {
+  position: relative;
+  z-index: 1;
+}
+.clip-body,
+.clip-name {
+  font-weight: 700;
+}
+.clip-meta {
+  color: rgba(243, 233, 220, 0.8);
+  font-size: 11px;
+}
+.track-overlay .clip::before {
+  height: 4px;
+  z-index: 1;
+}
+
+/* Подписи дорожек — плашки */
+.gutter-track {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--accent-2);
+}
+
+/* Линейка и плейхед в духе датавиза: линия с узлом */
+.tick:not(.minor)::after {
+  content: '';
+  position: absolute;
+  left: -4px;
+  bottom: 2px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent-2);
+}
+.tick span {
+  font-weight: 700;
+  color: var(--muted);
+}
+.playhead-head {
+  left: -1px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  clip-path: none;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--bg);
+}
+.playhead-line {
+  width: 2px;
+  background: var(--accent);
+}
+.snap-line {
+  background: var(--accent-2);
+}
+.marquee {
+  border: 1px solid var(--accent-2);
+  background: rgba(191, 208, 230, 0.14);
+}
+
+/* Строки списков и статус */
+.file-list button.is-selected,
+#text-list .text-pick.is-selected {
+  background: var(--accent-2);
+  color: var(--paper-ink);
+}
+.status {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.progress-bar {
+  background: var(--accent);
+}
+.hint {
+  font-family: var(--font-mono);
+  font-weight: 400;
+  color: var(--faint);
+}
+.safe-zone {
+  border-color: rgba(191, 208, 230, 0.6);
+}
