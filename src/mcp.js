@@ -29,7 +29,7 @@ How to work:
 6. preview renders a fast low-quality proxy. render writes the final file only when the user asks for it, to an absolute .mp4 path inside the allowed folders.
 7. Never edit files under the project's data folder directly; use the tools.`
 
-const mcp = new McpServer({ name: 'minicut', version: '1.0.0' }, { instructions: INSTRUCTIONS })
+const mcp = new McpServer({ name: 'minicut', version: '0.1.0' }, { instructions: INSTRUCTIONS })
 
 mcp.registerTool(
   'get_project',
