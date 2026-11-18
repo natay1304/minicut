@@ -1,56 +1,68 @@
 # minicut
 
-Локальный веб-редактор для монтажа вертикальных видео (рилсы, 1080×1920). Нарезка на таймлайне руками, а то же самое можно поручить агенту через HTTP API или MCP.
+**English** · [Русский](README.ru.md)
+
+A small local web video editor for vertical videos (reels, 1080×1920). Cut on a timeline by hand, or let Claude do it for you through MCP: both work on the same project, live.
 
 ![minicut](docs/screenshot.jpg)
 
 [![CI](https://github.com/natay1304/minicut/actions/workflows/ci.yml/badge.svg)](https://github.com/natay1304/minicut/actions/workflows/ci.yml)
 
-## Возможности
-- Основная дорожка (ripple) и до 10 оверлей-дорожек
-- Масштаб, позиция, громкость, mute и fade у каждого клипа; мультивыделение, snap, undo/redo (100 шагов)
-- Текст и субтитры: стили, импорт `.srt` и `.ass`
-- Удаление пауз по тишине, несколько проектов
-- Экспорт через ffmpeg с прогрессом, отменой и быстрым предпросмотром
-- MCP-сервер (stdio): те же операции доступны из Claude
+## Features
+- Main track (ripple) plus up to 10 overlay tracks
+- Per-clip scale, position, volume, mute and fades; multi-select, snapping, undo/redo (100 steps)
+- Text and subtitles with styles, `.srt` and `.ass` import
+- Silence removal, multiple projects
+- ffmpeg export with progress, cancel and a fast low-quality preview
+- MCP server (stdio): everything the UI does is available to Claude
+- Local only: no accounts, no cloud, nothing leaves your machine
 
-## Требования
+## Requirements
 - Node.js 20+
-- ffmpeg и ffprobe в `PATH` (`brew install ffmpeg`)
+- ffmpeg and ffprobe in `PATH` (`brew install ffmpeg` on macOS)
 
-## Быстрый старт
+## Quick start
 ```bash
+git clone https://github.com/natay1304/minicut.git
+cd minicut
 npm install
 npm start    # http://127.0.0.1:4317
 ```
-На macOS можно запустить `scripts/start.command` двойным кликом.
+On macOS you can also double-click `scripts/start.command`. Developed and tested on macOS; Linux and Windows should work (Node + ffmpeg) but are untested.
 
-## Подключение к Claude (MCP)
+## Use it with Claude (MCP)
 ```bash
-npm run mcp:install                # покажет конфиг с твоими путями
-npm run mcp:install -- --code      # Claude Code
-npm run mcp:install -- --desktop   # Claude Desktop и Cowork
+npm run mcp:install                # print the config with your absolute paths
+npm run mcp:install -- --code      # register in Claude Code
+npm run mcp:install -- --desktop   # add to Claude Desktop / Cowork (backs up your config)
 ```
-MCP сам поднимает редактор, если он не запущен. Подробная инструкция, примеры запросов и разбор проблем: [docs/MCP.md](docs/MCP.md). Список операций: [docs/API.md](docs/API.md).
+Restart the app, then ask Claude: *"Import `/path/to/talk.mp4`, remove the pauses and put it on the main track."* You watch the result live at http://127.0.0.1:4317. The MCP server starts the editor by itself if it isn't running. Tools, examples and troubleshooting: [docs/MCP.md](docs/MCP.md) (Russian); the full tool table is in [docs/API.md](docs/API.md).
 
-## Настройки (переменные окружения)
-| Переменная | По умолчанию | Назначение |
+## Limitations
+- No built-in speech recognition, so no cutting by transcript. Subtitles come from `.srt`/`.ass`, and transcript words can be pushed with `import_transcript`.
+- The HTTP API has no authentication. It binds to `127.0.0.1` only; never expose it to a network.
+- Homebrew's ffmpeg has no libass/drawtext, so captions are rendered to a PNG track (fonts ship in `public/fonts`).
+- The UI targets desktop and mouse. There are no automated UI tests.
+- Most documentation under `docs/` is in Russian for now. Translations are welcome.
+
+## Configuration (environment variables)
+| Variable | Default | Purpose |
 | --- | --- | --- |
-| `PORT` | `4317` | порт сервера (слушает только `127.0.0.1`) |
-| `MINICUT_DATA` | `./data` | где лежат проекты, превью и временные файлы |
-| `MINICUT_ROOTS` | домашняя и временная папки | папки, из которых можно импортировать и в которые можно экспортировать (список через `:`) |
-| `MINICUT_LOG` | `info` | уровень логов: `debug`, `info`, `warn`, `error` |
+| `PORT` | `4317` | server port (binds to `127.0.0.1` only) |
+| `MINICUT_DATA` | `./data` | projects, previews and temp files |
+| `MINICUT_ROOTS` | home and temp folders | folders you may import from and export to (separate with `:`) |
+| `MINICUT_LOG` | `info` | `debug`, `info`, `warn`, `error` |
 
-## Безопасность
-API доступен только с `127.0.0.1`/`localhost`. Запросы с чужими `Host` и `Origin` отклоняются, `POST` принимает только JSON, импорт и экспорт ограничены `MINICUT_ROOTS`, скрытые папки (`~/.ssh` и т. п.) недоступны, расширения файлов проверяются.
+## Security
+Only `127.0.0.1`/`localhost` are accepted: foreign `Host` and `Origin` headers are rejected, `POST` accepts JSON only, import and export are limited to `MINICUT_ROOTS`, hidden folders (`~/.ssh` etc.) are blocked and file extensions are checked. See [SECURITY.md](SECURITY.md).
 
-## Разработка
+## Development
 ```bash
-npm test           # тесты (node:test), данные изолированы во временной папке
+npm test           # node:test, data is isolated in a temp folder
 npm run lint       # ESLint
 npm run format     # Prettier
 ```
-Подробнее: [CONTRIBUTING.md](CONTRIBUTING.md), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). История постановок задач для Cursor лежит в [docs/specs](docs/specs).
+See [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-## Лицензия
+## License
 MIT
