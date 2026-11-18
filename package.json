@@ -22,7 +22,7 @@
   "license": "MIT",
   "description": "Local web video editor for vertical reels: multi-track timeline, ffmpeg export, HTTP API and MCP server",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.32.1",
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "@napi-rs/canvas": "^1.0.13",
     "express": "^5.3.0",
     "zod": "^4.6.7"
