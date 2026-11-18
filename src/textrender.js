@@ -1,11 +1,40 @@
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { createCanvas, GlobalFonts } from '@napi-rs/canvas'
 
+const fontsDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../public/fonts')
+const BUNDLED = { 'jetbrains-mono': 'JetBrains Mono', manrope: 'Manrope', cormorant: 'Cormorant' }
+const DEFAULT_FAMILY = 'JetBrains Mono'
 const readyFonts = new Set()
+let bundledLoaded = false
 
+// Шрифты из public/fonts идут вместе с проектом, поэтому подписи выглядят одинаково на любой ОС.
+// Они регистрируются под своими именами (чтобы не пересечься с системными одноимёнными):
+// латиница как "Семейство minicut", кириллица как "Семейство minicut Cyrillic".
+const alias = (family, cyrillic = false) => `${family} minicut${cyrillic ? ' Cyrillic' : ''}`
+
+function loadBundledFonts() {
+  if (bundledLoaded) return
+  bundledLoaded = true
+  if (!existsSync(fontsDir)) return
+  for (const file of readdirSync(fontsDir)) {
+    const match = /^(.+)-(latin|cyrillic)-\d+-(?:normal|italic)\.woff2$/.exec(file)
+    if (!match || !BUNDLED[match[1]]) continue
+    const family = BUNDLED[match[1]]
+    try {
+      GlobalFonts.registerFromPath(path.join(fontsDir, file), alias(family, match[2] === 'cyrillic'))
+      readyFonts.add(family)
+    } catch {
+      // Файл не удалось прочитать: canvas возьмёт запасной шрифт.
+    }
+  }
+}
+
+// Системный шрифт нужен только для семейств, которых нет среди встроенных.
 // ffmpeg собран без libass/freetype, поэтому подписи — это одна PNG-дорожка.
-function fontFile(family) {
+function systemFontFile(family) {
   try {
     const out = execFileSync('fc-list', [family, 'file'], {
       encoding: 'utf8',
@@ -21,19 +50,29 @@ function fontFile(family) {
   }
 }
 
-function useFamily(family) {
-  const name = family || 'JetBrains Mono'
-  if (readyFonts.has(name)) return name
-  const file = fontFile(name) || fontFile('Menlo') || fontFile('PT Mono')
-  if (file) {
-    try {
-      GlobalFonts.registerFromPath(file, name)
-      readyFonts.add(name)
-    } catch {
-      // Дальше canvas возьмёт запасной системный шрифт.
+// Возвращает CSS-список семейств для ctx.font: выбранный шрифт, его кириллица, запасной встроенный.
+export function fontStack(requested) {
+  loadBundledFonts()
+  const name = requested || DEFAULT_FAMILY
+  const stack = []
+  if (readyFonts.has(name)) {
+    stack.push(alias(name), alias(name, true))
+  } else {
+    if (!readyFonts.has(`system:${name}`)) {
+      const file = systemFontFile(name)
+      if (file) {
+        try {
+          GlobalFonts.registerFromPath(file, name)
+        } catch {
+          // Дальше сработает запасной шрифт из списка.
+        }
+      }
+      readyFonts.add(`system:${name}`)
     }
+    stack.push(name)
   }
-  return name
+  stack.push(alias(DEFAULT_FAMILY), alias(DEFAULT_FAMILY, true))
+  return [...new Set(stack.map((item) => `"${item}"`)), 'sans-serif'].join(', ')
 }
 
 function cssColor(value) {
@@ -72,9 +111,8 @@ function wrap(ctx, text, maxWidth) {
 
 function drawText(ctx, width, height, text, style, pixelScale) {
   const size = Math.max(8, (Number(style.size) || 62) * pixelScale)
-  const family = useFamily(style.font)
   const weight = Number(style.weight) || 700
-  ctx.font = `${weight} ${size}px "${family}"`
+  ctx.font = `${weight} ${size}px ${fontStack(style.font)}`
   ctx.fillStyle = cssColor(style.color || '#F3E9DC')
   const shadow = style.shadow || {}
   ctx.shadowColor = cssColor(shadow.color || 'transparent')
