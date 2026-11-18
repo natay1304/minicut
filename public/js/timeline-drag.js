@@ -43,7 +43,7 @@ export function snapEdge(time, ignoreId) {
   return best == null ? { time, hit: false } : { time: best, hit: true }
 }
 
-export function snapStart(start, dur, ignoreId) {
+function snapStart(start, dur, ignoreId) {
   const left = snapEdge(start, ignoreId)
   const right = snapEdge(start + dur, ignoreId)
   const leftDist = left.hit ? Math.abs(left.time - start) : Infinity
@@ -133,7 +133,7 @@ export function onClipPointerDown(event, clip, el) {
   window.addEventListener('pointerup', onUp)
 }
 
-export function armDrag(mode, clip, startX, rect) {
+function armDrag(mode, clip, startX, rect) {
   if (!state.selectedIds.has(clip.id)) selectOnly(clip.id)
   else state.primaryId = clip.id
   if (mode === 'move') {
@@ -164,7 +164,7 @@ export function armDrag(mode, clip, startX, rect) {
   }
 }
 
-export function updateArmedDrag(ev) {
+function updateArmedDrag(ev) {
   const drag = state.drag
   if (!drag) return
   if (drag.type === 'move') {
@@ -185,7 +185,7 @@ export function updateArmedDrag(ev) {
   }
 }
 
-export function trackAtClientY(clientY) {
+function trackAtClientY(clientY) {
   for (const row of trackRows.querySelectorAll('.track')) {
     const rect = row.getBoundingClientRect()
     if (clientY >= rect.top && clientY < rect.bottom) return row.dataset.track
@@ -228,7 +228,7 @@ export function startBackground(event) {
   window.addEventListener('pointerup', onUp)
 }
 
-export function paintMarquee(origin, cur, base, additive) {
+function paintMarquee(origin, cur, base, additive) {
   const rect = {
     left: Math.min(origin.x, cur.x),
     top: Math.min(origin.y, cur.y),
@@ -248,7 +248,7 @@ export function paintMarquee(origin, cur, base, additive) {
   hooks.fillClipForm()
 }
 
-export function clipsInRect(rect) {
+function clipsInRect(rect) {
   const hits = []
   displayTracks().forEach((track, index) => {
     const items = track.id === 'main' ? buildMainItems() : buildFreeItems(track)
@@ -268,7 +268,7 @@ export function clipsInRect(rect) {
   return hits
 }
 
-export function beginRename(clip, el) {
+function beginRename(clip, el) {
   if (state.renaming) return
   selectOnly(clip.id)
   paintSelection()

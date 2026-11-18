@@ -39,7 +39,7 @@ export function pausePlayback() {
   paintTransport()
 }
 
-export function unlockAudio(player, mediaId) {
+function unlockAudio(player, mediaId) {
   if (player.dataset.mediaId !== mediaId) {
     player.dataset.mediaId = mediaId
     player.src = mediaUrl(mediaId)
@@ -70,7 +70,7 @@ export function unlockAudio(player, mediaId) {
   }
 }
 
-export function startPlayback() {
+function startPlayback() {
   const total = mainDuration()
   if (total <= 0) {
     setStatus('На основной дорожке нет клипов', true)
@@ -120,7 +120,7 @@ export function togglePlay() {
   }
 }
 
-export function ensureRaf() {
+function ensureRaf() {
   if (state.raf) return
   state.lastTs = 0
   state.raf = requestAnimationFrame(tick)
@@ -138,7 +138,7 @@ export function tick(ts) {
   else if (state.shuttle < 0) reverseStep(dt)
 }
 
-export function followVideo() {
+function followVideo() {
   if (!state.playbackArmed || state.transitioning || frontVideo().seeking) return
   const clips = mainClips()
   const clip = clips[state.playIndex]
@@ -162,7 +162,7 @@ export function followVideo() {
   void syncOverlay(state.playhead, { play: true })
 }
 
-export function reverseStep(dt) {
+function reverseStep(dt) {
   const speed = Math.abs(state.shuttle)
   const time = state.playhead - dt * speed
   if (time <= 0) {
@@ -191,7 +191,7 @@ export function reverseStep(dt) {
   }
 }
 
-export function continueFrom(time) {
+function continueFrom(time) {
   if (state.transitioning) return
   const total = mainDuration()
   if (time >= total - 0.0005) {
@@ -222,7 +222,7 @@ export function revealPlayhead() {
   else if (x > viewLeft + viewWidth - margin) timelineScroll.scrollLeft = x - viewWidth + margin
 }
 
-export function scrubTo(clientX) {
+function scrubTo(clientX) {
   state.playhead = clamp(timeFromClientX(clientX), 0, timelineSpan())
   paintPlayhead()
   paintTimecode()
@@ -234,7 +234,7 @@ export function scrubTo(clientX) {
   })
 }
 
-export function beginScrub(event) {
+function beginScrub(event) {
   if (event.button !== 0) return
   event.preventDefault()
   const wasPlaying = state.playing
@@ -253,7 +253,7 @@ export function beginScrub(event) {
   window.addEventListener('pointerup', onUp)
 }
 
-export function currentFps() {
+function currentFps() {
   const total = mainDuration()
   const t = total > 0 ? clamp(state.playhead, 0, Math.max(total - 0.001, 0)) : 0
   const loc = total > 0 ? locate(t) : null

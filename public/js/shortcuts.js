@@ -5,17 +5,17 @@ import { state } from './state.js'
 
 export const keys = new Set()
 
-export function typingTarget(el) {
+function typingTarget(el) {
   if (!el || el === document.body) return false
   const tag = el.tagName
   return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable
 }
 
-export function dialogOpen() {
+function dialogOpen() {
   return [...document.querySelectorAll('dialog')].some((dialog) => dialog.open)
 }
 
-export function onKeyDown(event) {
+function onKeyDown(event) {
   keys.add(event.code)
   if (typingTarget(event.target)) return
   if (state.drag || state.renaming) return

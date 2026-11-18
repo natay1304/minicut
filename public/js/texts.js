@@ -7,7 +7,7 @@ import { styleMap, texts } from './project-model.js'
 import { $, state } from './state.js'
 import { clamp, formatTime, round3 } from './util.js'
 
-export function currentStyleName() {
+function currentStyleName() {
   const text = texts().find((item) => item.id === state.textId)
   const name = text?.style || 'sub'
   return styleMap()[name] ? name : 'sub'
@@ -63,7 +63,7 @@ export function renderTextList() {
   }
 }
 
-export function pickText(id) {
+function pickText(id) {
   state.textId = id
   const text = texts().find((item) => item.id === id)
   renderTextList()
@@ -92,7 +92,7 @@ export function fillTextForm() {
   $('text-end').value = String(text.end)
 }
 
-export async function saveText() {
+async function saveText() {
   const text = texts().find((item) => item.id === state.textId)
   if (!text) return
   const body = $('text-body').value
@@ -114,7 +114,7 @@ export async function saveText() {
   }
 }
 
-export async function addTextCue() {
+async function addTextCue() {
   const start = round3(Math.max(0, state.playhead))
   const end = round3(start + 2)
   try {
@@ -168,7 +168,7 @@ export function fillStyleForm() {
   $('style-shadow').value = shadow.color || '#000000AA'
 }
 
-export function readStyleForm() {
+function readStyleForm() {
   const size = Number($('style-size').value)
   const x = Number($('style-x-n').value)
   const y = Number($('style-y-n').value)
@@ -189,7 +189,7 @@ export function readStyleForm() {
   }
 }
 
-export function styleEqual(patch, prev) {
+function styleEqual(patch, prev) {
   if (!prev) return false
   const shadow = prev.shadow || {}
   return (
@@ -206,14 +206,14 @@ export function styleEqual(patch, prev) {
   )
 }
 
-export function previewStyleForm() {
+function previewStyleForm() {
   const patch = readStyleForm()
   state.previewStyle = { name: currentStyleName(), ...patch }
   state.captionKey = ''
   paintCaptions()
 }
 
-export async function commitStyle() {
+async function commitStyle() {
   const name = currentStyleName()
   const patch = readStyleForm()
   if (
@@ -250,7 +250,7 @@ export async function commitStyle() {
   }
 }
 
-export function bindStylePairs() {
+function bindStylePairs() {
   for (const key of ['style-x', 'style-y']) {
     const range = $(key)
     const num = $(`${key}-n`)

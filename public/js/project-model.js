@@ -129,7 +129,7 @@ export function locate(time, clips = mainClips()) {
   return null
 }
 
-export function overlayAt(time) {
+function overlayAt(time) {
   let hit = null
   for (const track of freeTracks()) {
     const clip = clipOnTrackAt(track, time)

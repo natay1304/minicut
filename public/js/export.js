@@ -3,7 +3,7 @@ import { canvasInfo, mainDuration } from './project-model.js'
 import { $, progressBar, progressEl, progressLabel, state } from './state.js'
 import { clamp, formatTime } from './util.js'
 
-export function updateRenderButtons() {
+function updateRenderButtons() {
   const busy = state.rendering
   $('quick-preview').disabled = busy
   $('open-export').disabled = busy
@@ -13,7 +13,7 @@ export function updateRenderButtons() {
   $('cancel-render').hidden = !busy
 }
 
-export function beginRender() {
+function beginRender() {
   clearTimeout(state.hideProgressTimer)
   state.renderGen += 1
   state.rendering = true
@@ -21,7 +21,7 @@ export function beginRender() {
   return state.renderGen
 }
 
-export function endRender(gen) {
+function endRender(gen) {
   if (gen !== state.renderGen) return
   state.rendering = false
   updateRenderButtons()
@@ -53,7 +53,7 @@ export function showProgress(info = {}) {
   }
 }
 
-export function hideProgress() {
+function hideProgress() {
   clearTimeout(state.hideProgressTimer)
   progressEl.hidden = true
   progressLabel.hidden = true
@@ -61,7 +61,7 @@ export function hideProgress() {
   $('export-progress-label').textContent = ''
 }
 
-export function openExport() {
+function openExport() {
   const canvas = canvasInfo()
   $('export-width').value = canvas.width
   $('export-height').value = canvas.height
@@ -69,7 +69,7 @@ export function openExport() {
   if (!$('export-dialog').open) $('export-dialog').showModal()
 }
 
-export async function runExport(body) {
+async function runExport(body) {
   if (state.rendering) return
   const gen = beginRender()
   setStatus('Экспорт…')
@@ -96,7 +96,7 @@ export async function runExport(body) {
   }
 }
 
-export async function runPreview() {
+async function runPreview() {
   if (state.rendering) return
   const gen = beginRender()
   setStatus('Собираю предпросмотр…')
@@ -117,7 +117,7 @@ export async function runPreview() {
   }
 }
 
-export function openProxy() {
+function openProxy() {
   const video = $('proxy-video')
   video.src = `/preview.mp4?t=${Date.now()}`
   const dialog = $('preview-dialog')

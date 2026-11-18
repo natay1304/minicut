@@ -33,7 +33,7 @@ export function playerIndexFor(mediaId, sourceTime) {
   return state.front
 }
 
-export function reveal(index) {
+function reveal(index) {
   videos[index].classList.add('is-on')
   videos[1 - index].classList.remove('is-on')
   if (state.front !== index) {
@@ -61,7 +61,7 @@ export function clearMain() {
   state.front = 0
 }
 
-export function releaseOverlayVideo(video) {
+function releaseOverlayVideo(video) {
   video.dataset.job = String(Number(video.dataset.job || 0) + 1)
   video.pause()
   video.classList.remove('is-on')
@@ -78,7 +78,7 @@ export function releaseOverlayVideo(video) {
   }
 }
 
-export function clearOverlay() {
+function clearOverlay() {
   for (const id of [...overlayVideos.keys()]) {
     const video = overlayVideos.get(id)
     releaseOverlayVideo(video)
@@ -119,7 +119,7 @@ export function clearPlayers() {
   clearOverlay()
 }
 
-export function clampMediaTime(video, time) {
+function clampMediaTime(video, time) {
   const dur = video.duration
   if (!Number.isFinite(dur) || dur <= 0) return Math.max(0, time)
   return clamp(time, 0, Math.max(0, dur - 0.001))
@@ -146,7 +146,7 @@ export function listen(video, event, token) {
   return { promise, finish }
 }
 
-export async function prepare(video, mediaId, time) {
+async function prepare(video, mediaId, time) {
   const token = Number(video.dataset.token || 0) + 1
   video.dataset.token = String(token)
   const still = () => Number(video.dataset.token) === token
@@ -176,7 +176,7 @@ export async function prepare(video, mediaId, time) {
   return still() ? 'ok' : 'stale'
 }
 
-export function applyMainAudio(player, clip) {
+function applyMainAudio(player, clip) {
   const view = viewClip(clip)
   player.muted = Boolean(view.muted)
   player.volume = clamp(Number(view.volume ?? 1), 0, 1)
@@ -220,7 +220,7 @@ export async function showSource(loc, { play }) {
   }
 }
 
-export async function preloadNeighbor() {
+async function preloadNeighbor() {
   if (!state.playing || state.transitioning) return
   const dir = state.shuttle >= 0 ? 1 : -1
   const clip = mainClips()[state.playIndex + dir]
@@ -233,7 +233,7 @@ export async function preloadNeighbor() {
   if (back !== frontVideo()) back.pause()
 }
 
-export function syncOneOverlay(track, time, play) {
+function syncOneOverlay(track, time, play) {
   const video = overlayVideos.get(track.id)
   if (!video) return Promise.resolve()
   const clip = clipOnTrackAt(track, time)
@@ -272,7 +272,7 @@ export function syncOverlay(time, { play }) {
   return Promise.all(freeTracks().map((track) => syncOneOverlay(track, time, play)))
 }
 
-export function seekOverlay(video, track, clip, source, play) {
+function seekOverlay(video, track, clip, source, play) {
   const job = Number(video.dataset.job || 0) + 1
   video.dataset.job = String(job)
   video.dataset.clipId = clip.id

@@ -19,7 +19,10 @@ npm run mcp:install -- --desktop # допишет конфиг Claude Desktop и
 Скрипт подставляет абсолютные пути к `node` и `src/mcp.js` этой копии проекта. Вручную то же самое:
 
 - **Claude Code:** `claude mcp add --scope user minicut -- /путь/к/node /путь/к/minicut/src/mcp.js`. Внутри папки проекта уже есть `.mcp.json`, там MCP подключается сам.
-- **Claude Desktop и Cowork:** добавь блок `mcpServers` в `claude_desktop_config.json` (пример: [examples/claude_desktop_config.json](../examples/claude_desktop_config.json)); на macOS файл лежит в `~/Library/Application Support/Claude/`. Потом полностью перезапусти приложение.
+- **Claude Desktop и Cowork:** добавь блок `mcpServers` в `claude_desktop_config.json` (на macOS он лежит в `~/Library/Application Support/Claude/`), затем полностью перезапусти приложение:
+  ```json
+  { "mcpServers": { "minicut": { "command": "/абсолютный/путь/к/node", "args": ["/абсолютный/путь/к/minicut/src/mcp.js"] } } }
+  ```
 - **Другой MCP-клиент:** команда `node /путь/к/minicut/src/mcp.js`, транспорт stdio.
 
 Нужен именно абсолютный путь к `node`: приложения не видят `nvm` и не найдут просто `node`. Путь покажет `which node`. После смены версии Node обнови конфиг (`npm run mcp:install` перезапишет).

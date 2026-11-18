@@ -46,7 +46,7 @@ export function startTrim(event, clip, edge) {
   hooks.fillClipForm()
 }
 
-export function updateTrim(ev) {
+function updateTrim(ev) {
   const drag = state.drag
   if (!drag || drag.type !== 'trim') return
   const delta = (ev.clientX - drag.startX) / state.zoom
@@ -94,7 +94,7 @@ export function updateTrim(ev) {
   renderTimeline()
 }
 
-export async function finishMainTrim(drag) {
+async function finishMainTrim(drag) {
   const changed = drag.in !== drag.origIn || drag.out !== drag.origOut
   state.drag = null
   const pending = state.pendingProject
@@ -122,7 +122,7 @@ export async function finishMainTrim(drag) {
   }
 }
 
-export async function finishOverlayTrim(drag) {
+async function finishOverlayTrim(drag) {
   const changedIn = drag.in !== drag.origIn || drag.out !== drag.origOut
   const changedStart = round3(drag.start) !== round3(drag.origStart)
   state.drag = null
