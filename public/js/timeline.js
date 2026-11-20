@@ -27,7 +27,7 @@ import {
 } from './state.js'
 import { ZOOM_MAX, ZOOM_MIN, clamp, formatRuler, formatTime, round3 } from './util.js'
 
-export function contentX(clientX) {
+function contentX(clientX) {
   return clientX - timelineInner.getBoundingClientRect().left
 }
 
@@ -99,7 +99,7 @@ export function buildFreeItems(track) {
   return items
 }
 
-export function renderAddTrack() {
+function renderAddTrack() {
   const select = $('add-track')
   const ids = ['main', ...freeTracks().map((track) => track.id)]
   const signature = ids.join('|')
@@ -118,7 +118,7 @@ export function renderAddTrack() {
   $('add-overlay-track').disabled = freeTracks().length >= 10
 }
 
-export function syncRuler() {
+function syncRuler() {
   ruler.style.transform = `translateX(${-timelineScroll.scrollLeft}px)`
   if (gutterScroll) gutterScroll.scrollTop = timelineScroll.scrollTop
 }
@@ -188,7 +188,7 @@ export function renderTimeline() {
   zoomInput.value = String(state.zoom)
 }
 
-export function renderRuler(width) {
+function renderRuler(width) {
   ruler.replaceChildren()
   const step = rulerStep(state.zoom)
   const minorStep = step / 2
@@ -207,13 +207,13 @@ export function renderRuler(width) {
   }
 }
 
-export function rulerStep(zoom) {
+function rulerStep(zoom) {
   const steps = [0.1, 0.2, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600]
   for (const step of steps) if (step * zoom >= 90) return step
   return 600
 }
 
-export function renderTrack(track, items, empty) {
+function renderTrack(track, items, empty) {
   track.replaceChildren()
   if (empty) {
     const note = document.createElement('div')
@@ -224,7 +224,7 @@ export function renderTrack(track, items, empty) {
   for (const item of items) track.append(clipElement(item))
 }
 
-export function clipElement(item) {
+function clipElement(item) {
   const { clip } = item
   const media = mediaById(clip.mediaId)
   const found = clipById(clip.id)
@@ -266,7 +266,7 @@ export function clipElement(item) {
   return el
 }
 
-export function paintMoveGhost(items) {
+function paintMoveGhost(items) {
   const track = trackRows.querySelector('[data-track="main"]')
   if (!track) return
   const marker = document.createElement('div')
@@ -284,7 +284,7 @@ export function paintMoveGhost(items) {
   track.append(ghost)
 }
 
-export function paintSnap() {
+function paintSnap() {
   const line = $('snap-line')
   const t = state.drag?.snapTime
   if (t == null || !state.drag) {
@@ -295,7 +295,7 @@ export function paintSnap() {
   line.style.left = `${t * state.zoom}px`
 }
 
-export function markerX(index, items) {
+function markerX(index, items) {
   if (!items.length) return 0
   if (index < items.length) return items[index].left
   const last = items[items.length - 1]
@@ -320,7 +320,7 @@ export function paintSelection() {
   }
 }
 
-export function setZoom(next, anchorClientX) {
+function setZoom(next, anchorClientX) {
   const zoom = clamp(next, ZOOM_MIN, ZOOM_MAX)
   state.zoomExact = zoom
   const rounded = Math.round(zoom)

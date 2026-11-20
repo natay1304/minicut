@@ -1,7 +1,7 @@
 import { postOp, setStatus } from './api.js'
 import { $, state } from './state.js'
 
-export function renderProjectList(names) {
+function renderProjectList(names) {
   const list = $('project-list')
   list.replaceChildren()
   if (!names.length) {
@@ -26,7 +26,7 @@ export function renderProjectList(names) {
   }
 }
 
-export async function refreshProjects() {
+async function refreshProjects() {
   try {
     const names = await postOp('listProjects', {})
     renderProjectList(Array.isArray(names) ? names : [])
@@ -35,7 +35,7 @@ export async function refreshProjects() {
   }
 }
 
-export async function createProject() {
+async function createProject() {
   const name = $('project-name').value.trim()
   if (!name) {
     setStatus('Укажите имя проекта', true)
@@ -51,7 +51,7 @@ export async function createProject() {
   }
 }
 
-export async function saveAs() {
+async function saveAs() {
   const name = $('project-name').value.trim()
   if (!name) {
     setStatus('Укажите имя проекта', true)
@@ -66,7 +66,7 @@ export async function saveAs() {
   }
 }
 
-export async function loadNamed(name) {
+async function loadNamed(name) {
   try {
     await postOp('loadProject', { name })
     setStatus(`Открыт проект «${name}»`)

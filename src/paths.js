@@ -24,7 +24,7 @@ function realpathOrSelf(p) {
 }
 
 /** Папки, внутри которых разрешено читать и писать. По умолчанию домашняя папка и временная. */
-export function allowedRoots() {
+function allowedRoots() {
   const fromEnv = (process.env.MINICUT_ROOTS || '')
     .split(path.delimiter)
     .map((item) => item.trim())

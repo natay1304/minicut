@@ -38,7 +38,7 @@ export async function request(method, url, body) {
   return data
 }
 
-export function enqueue(fn) {
+function enqueue(fn) {
   const run = state.queue.then(fn, fn)
   state.queue = run.then(
     () => {},

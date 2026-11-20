@@ -54,7 +54,7 @@ export function renderLibrary() {
   renderBrowse()
 }
 
-export function renderBrowse() {
+function renderBrowse() {
   browseList.replaceChildren()
   if (!state.browseFiles.length) {
     const note = document.createElement('li')
@@ -88,7 +88,7 @@ export function renderBrowse() {
   }
 }
 
-export async function importFile(filePath) {
+async function importFile(filePath) {
   const path = filePath.trim()
   if (!path) {
     setStatus('Укажите путь к файлу', true)
@@ -105,7 +105,7 @@ export async function importFile(filePath) {
   }
 }
 
-export async function addMedia(mediaId) {
+async function addMedia(mediaId) {
   const trackId = $('add-track').value || 'main'
   const start = round3(Math.max(0, state.playhead))
   try {
@@ -126,7 +126,7 @@ export async function addMedia(mediaId) {
   }
 }
 
-export async function browseDir(dir) {
+async function browseDir(dir) {
   const folder = dir.trim()
   if (!folder) {
     setStatus('Укажите папку', true)

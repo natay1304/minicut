@@ -70,7 +70,7 @@ export function flushPending() {
   if (pending) applyProject(pending)
 }
 
-export function renderAll() {
+function renderAll() {
   syncOverlayPool()
   renderLibrary()
   renderTimeline()
@@ -78,7 +78,7 @@ export function renderAll() {
   renderProjectButton()
 }
 
-export function connectEvents() {
+function connectEvents() {
   const source = new EventSource('/api/events')
   source.addEventListener('project', (event) => {
     try {
@@ -97,7 +97,7 @@ export function connectEvents() {
   })
 }
 
-export function bind() {
+function bind() {
   bindPlayback()
   bindEditing()
   bindLibrary()

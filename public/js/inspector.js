@@ -7,7 +7,7 @@ import { $, overlayVideos, state } from './state.js'
 import { fillStyleForm, fillTextForm, renderTextList } from './texts.js'
 import { CLIP_LIMITS, clamp, round3 } from './util.js'
 
-export function clipHeading() {
+function clipHeading() {
   const clip = primaryClip()
   if (!clip) return ''
   const trackName = trackLabel(clipById(clip.id)?.track.id || 'main')
@@ -53,7 +53,7 @@ export function setPair(id, value) {
   if (num) num.value = String(n)
 }
 
-export function previewAudio(clip) {
+function previewAudio(clip) {
   const view = viewClip(clip)
   const volume = clamp(Number(view.volume ?? 1), 0, 1)
   const muted = Boolean(view.muted)
@@ -72,7 +72,7 @@ export function previewAudio(clip) {
   }
 }
 
-export function bindClipNumber(rangeId, key, live) {
+function bindClipNumber(rangeId, key, live) {
   const range = $(rangeId)
   const num = $(`${rangeId}-n`)
   const read = (source) => {
@@ -115,7 +115,7 @@ export function bindClipNumber(rangeId, key, live) {
   }
 }
 
-export function bindFade(id, key) {
+function bindFade(id, key) {
   const node = $(id)
   node.addEventListener('change', () => {
     const clip = primaryClip()

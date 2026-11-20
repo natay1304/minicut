@@ -6,7 +6,7 @@ import { $, redoBtn, state, undoBtn } from './state.js'
 import { paintSelection } from './timeline.js'
 import { round3 } from './util.js'
 
-export function splitTarget() {
+function splitTarget() {
   const t = state.playhead
   const inside = (clip, start) => t > start + 0.0005 && t < start + (clip.out - clip.in) - 0.0005
   const hits = []
