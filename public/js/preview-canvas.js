@@ -105,6 +105,7 @@ export function paintCanvas() {
   stageMeta.textContent = parts.join(' · ')
   const hasVisual = mainClips().length > 0 || overlayClips().length > 0 || texts().length > 0
   stageEmpty.hidden = hasVisual
+  hooks.syncCrop?.()
 }
 
 export function paintCaptions() {

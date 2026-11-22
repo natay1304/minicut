@@ -46,6 +46,7 @@ Claude (MCP)       ──stdio────►  src/mcp.js ──HTTP──┘   
 | `selection.js`, `editing.js` | выделение клипов, разрез и удаление |
 | `timeline*.js` | отрисовка таймлайна, перетаскивание, подрезка, перенос, snap |
 | `preview-*.js`, `playback.js` | холст превью, пул видеоэлементов (по одному на дорожку), воспроизведение |
+| `crop-math.js`, `canvas-edit.js` | геометрия кадра и правка области мышью на превью |
 | `inspector.js`, `texts.js`, `library.js`, `projects.js`, `export.js` | панели и диалоги |
 | `shortcuts.js` | горячие клавиши |
 

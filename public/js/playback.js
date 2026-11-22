@@ -287,6 +287,7 @@ export function bindPlayback() {
   playBtn.addEventListener('click', togglePlay)
   stage.addEventListener('click', (event) => {
     if (event.target.closest('button, a, input, textarea, select')) return
+    if (event.target.closest('#crop-layer')) return
     if (event.target.closest('#canvas-box')) {
       const clip = topClipAt(state.playhead)
       if (clip) {

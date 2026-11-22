@@ -1,4 +1,5 @@
 import { postOp, request } from './api.js'
+import { FRAME_BOTTOM, FRAME_TOP } from './crop-math.js'
 import { hooks } from './hooks.js'
 import { paintCanvas } from './preview-canvas.js'
 import { frontVideo } from './preview-players.js'
@@ -6,9 +7,6 @@ import { clipById, locate, mainDuration, primaryClip, trackLabel, viewClip } fro
 import { $, overlayVideos, state } from './state.js'
 import { fillStyleForm, fillTextForm, renderTextList } from './texts.js'
 import { CLIP_LIMITS, clamp, round3 } from './util.js'
-
-const REGION_TOP = { x: 0, y: 0, w: 1, h: 0.5 }
-const REGION_BOTTOM = { x: 0, y: 0.5, w: 1, h: 0.5 }
 
 function sameRegion(a, b) {
   if (!a && !b) return true
@@ -18,14 +16,14 @@ function sameRegion(a, b) {
 
 function regionChoice(region) {
   if (!region) return 'full'
-  if (sameRegion(region, REGION_TOP)) return 'top'
-  if (sameRegion(region, REGION_BOTTOM)) return 'bottom'
+  if (sameRegion(region, FRAME_TOP)) return 'top'
+  if (sameRegion(region, FRAME_BOTTOM)) return 'bottom'
   return 'custom'
 }
 
 function regionFromChoice(choice) {
-  if (choice === 'top') return { ...REGION_TOP }
-  if (choice === 'bottom') return { ...REGION_BOTTOM }
+  if (choice === 'top') return { ...FRAME_TOP }
+  if (choice === 'bottom') return { ...FRAME_BOTTOM }
   return null
 }
 
@@ -53,19 +51,23 @@ export function renderInspector() {
 }
 
 export function fillClipForm() {
-  const clip = primaryClip()
+  const clip = viewClip(primaryClip())
   const form = $('clip-form')
   const empty = $('clip-empty')
   if (!clip) {
     form.hidden = true
     empty.hidden = false
+    hooks.syncCrop?.()
     return
   }
   empty.hidden = true
   form.hidden = false
   $('clip-heading').textContent = clipHeading()
   $('clip-delete').textContent = state.selectedIds.size > 1 ? 'Удалить выбранные' : 'Удалить'
-  if (form.contains(document.activeElement)) return
+  if (form.contains(document.activeElement)) {
+    hooks.syncCrop?.()
+    return
+  }
   setPair('prop-scale', clip.scale ?? 1)
   setPair('prop-x', clip.x ?? 0)
   setPair('prop-y', clip.y ?? 0)
@@ -74,6 +76,7 @@ export function fillClipForm() {
   $('prop-fade-out').value = String(clip.fadeOut ?? 0)
   $('prop-mute').checked = Boolean(clip.muted)
   fillRegion(clip)
+  hooks.syncCrop?.()
 }
 
 export function setPair(id, value) {
@@ -209,6 +212,7 @@ export function bindInspector() {
   })
   $('clip-form').addEventListener('focusout', (event) => {
     if ($('clip-form').contains(event.relatedTarget)) return
+    if (state.cropGesture) return
     state.previewPatch = null
     paintCanvas()
   })

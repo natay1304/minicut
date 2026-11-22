@@ -11,6 +11,7 @@ A small local web video editor for vertical videos (reels, 1080×1920). Cut on a
 ## Features
 - Main track (ripple) plus up to 10 overlay tracks
 - Per-clip scale, position, volume, mute and fades; multi-select, snapping, undo/redo (100 steps)
+- Crop and shift the frame with the mouse on the preview
 - Text and subtitles with styles, `.srt` and `.ass` import
 - Silence removal, multiple projects
 - **Local speech recognition** (whisper.cpp): transcript with word timings, find phrases, detect repeated takes, cut by text, captions from the transcript. Nothing leaves your machine (details: [docs/SPEECH.md](docs/SPEECH.md), in Russian)

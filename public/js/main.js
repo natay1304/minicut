@@ -1,4 +1,5 @@
 import { request, setApplyProject, setStatus } from './api.js'
+import { bindCrop, syncCropLayer, toggleCrop } from './canvas-edit.js'
 import { bindEditing } from './editing.js'
 import { bindExport, showProgress } from './export.js'
 import { hooks } from './hooks.js'
@@ -29,6 +30,8 @@ hooks.renderInspector = renderInspector
 hooks.pausePlayback = pausePlayback
 hooks.showFrame = showFrame
 hooks.paintCanvas = paintCanvas
+hooks.syncCrop = syncCropLayer
+hooks.toggleCrop = toggleCrop
 hooks.startBackground = startBackground
 hooks.onClipPointerDown = onClipPointerDown
 hooks.startTrim = startTrim
@@ -119,6 +122,7 @@ function bind() {
   bindExport()
   bindShortcuts()
   bindPanels()
+  bindCrop()
 }
 
 export async function init() {

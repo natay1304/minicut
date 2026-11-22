@@ -53,6 +53,22 @@
           <span id="timecode" class="timecode">00:00.000</span>
           <span class="timecode dim">/</span>
           <span id="duration" class="timecode dim">00:00.000</span>
+          <button
+            type="button"
+            id="crop-btn"
+            aria-pressed="false"
+            aria-label="Кадрировать"
+            title="Кадрировать: тяните стороны рамки (C)"
+          >
+            Кадрировать
+          </button>
+          <div id="crop-presets" class="crop-presets" hidden>
+            <button type="button" id="crop-full" aria-label="Весь кадр">Весь кадр</button>
+            <button type="button" id="crop-top" aria-label="Верх">Верх</button>
+            <button type="button" id="crop-bottom" aria-label="Низ">Низ</button>
+            <button type="button" id="crop-reset" aria-label="Сброс">Сброс</button>
+          </div>
+          <p id="crop-hint" class="hint crop-hint" hidden></p>
         </div>
         <div class="top-actions">
           <button type="button" id="undo-btn" title="Отменить (⌘Z)">Отменить</button>
@@ -119,6 +135,38 @@
         <div class="canvas-box" id="canvas-box">
           <video id="preview-a" class="preview-video preview-main" playsinline preload="auto"></video>
           <video id="preview-b" class="preview-video preview-main" playsinline preload="auto"></video>
+          <div id="crop-layer" class="crop-layer" hidden>
+            <div id="crop-frame" class="crop-frame">
+              <button
+                type="button"
+                class="crop-handle"
+                data-handle="nw"
+                aria-label="Левый верхний угол"
+              ></button>
+              <button type="button" class="crop-handle" data-handle="n" aria-label="Верхняя сторона"></button>
+              <button
+                type="button"
+                class="crop-handle"
+                data-handle="ne"
+                aria-label="Правый верхний угол"
+              ></button>
+              <button type="button" class="crop-handle" data-handle="e" aria-label="Правая сторона"></button>
+              <button
+                type="button"
+                class="crop-handle"
+                data-handle="se"
+                aria-label="Правый нижний угол"
+              ></button>
+              <button type="button" class="crop-handle" data-handle="s" aria-label="Нижняя сторона"></button>
+              <button
+                type="button"
+                class="crop-handle"
+                data-handle="sw"
+                aria-label="Левый нижний угол"
+              ></button>
+              <button type="button" class="crop-handle" data-handle="w" aria-label="Левая сторона"></button>
+            </div>
+          </div>
           <div id="captions" class="captions"></div>
           <div class="safe-zone" title="Безопасная зона"></div>
           <div id="stage-empty" class="stage-empty">
@@ -371,7 +419,8 @@
             <button type="submit" id="silence-btn">Убрать паузы</button>
           </form>
           <p class="hint">
-            Пробел — пуск · ← → кадр · S — разрезать · Delete — удалить · Shift/⌘ клик и рамка · J K L · ⌘Z
+            Пробел — пуск · ← → кадр · C — кадр · S — разрезать · Delete — удалить · Shift/⌘ клик и рамка · J
+            K L · ⌘Z
           </p>
         </div>
         <div class="timeline-body">
