@@ -149,6 +149,21 @@ export function findPhrase(words, query, { limit = 20, minSimilarity = 0.8 } = {
   return matches.sort((a, b) => a.start - b.start)
 }
 
+const FILLER = new Set(['то', 'есть', 'ну', 'итак', 'собственно', 'получается', 'вот', 'а', 'и'])
+
+// Дубли одной мысли часто начинаются одинаково, а продолжаются по-разному. Сравниваем первые слова
+// после вводных («то есть», «итак»): если пять слов подряд совпали, это один и тот же дубль.
+function sameOpening(a, b, count = 5) {
+  const core = (list) => {
+    let i = 0
+    while (i < list.length - count && FILLER.has(list[i])) i += 1
+    return list.slice(i, i + count)
+  }
+  const x = core(a)
+  const y = core(b)
+  return x.length === count && y.length === count && x.every((word, k) => sameWord(word, y[k]))
+}
+
 /**
  * Ищет повторные дубли: фразы, сказанные несколько раз подряд почти теми же словами,
  * и оборванные начала («Сегодня мы расскажем про… Сегодня мы расскажем про три способа»).
@@ -170,7 +185,7 @@ export function findRepeats(words, { minWords = 3, minSimilarity = 0.75, window 
       const longer = shorter === toks[last] ? toks[j] : toks[last]
       const restart =
         similarity(shorter, longer.slice(0, shorter.length)) >= 0.85 && shorter.length >= minWords
-      if (full >= minSimilarity || restart) takes.push(j)
+      if (full >= minSimilarity || restart || sameOpening(toks[last], toks[j])) takes.push(j)
     }
     if (takes.length > 1) {
       takes.forEach((k) => used.add(k))

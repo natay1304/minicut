@@ -82,6 +82,21 @@ test('findRepeats: повторный дубль и оборванное нач�
   assert.equal(findRepeats(restart)[0].takes.length, 2)
 })
 
+test('findRepeats: дубли с одинаковым началом и разным продолжением', () => {
+  const words = [
+    ...mk('То есть ты пишешь в чате что тебе нужно сделать скачиваешь все нужные', 0),
+    ...mk('Там уже есть FFMPEG.', 5),
+    ...mk('То есть ты пишешь в чате что тебе нужно сделать и при этом видишь что сделано.', 8),
+    ...mk('Ты пишешь в чате что нужно сделать и при этом видишь визуально что происходит.', 14),
+    ...mk('Ты пишешь в чате что тебе нужно сделать но при этом можно править руками.', 20),
+  ]
+  const groups = findRepeats(words)
+  assert.equal(groups.length, 1)
+  assert.equal(groups[0].takes.length, 4)
+  assert.equal(groups[0].keep, 3)
+  assert.match(groups[0].phrase, /править руками/)
+})
+
 test('wordsOnTimeline: слова переносятся по клипам, вырезанное пропадает', () => {
   const words = [
     { text: 'раз', start: 0, end: 1 },
