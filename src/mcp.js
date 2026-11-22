@@ -18,12 +18,25 @@ const track = z
   .optional()
   .describe('Timeline track: main, or overlay, overlay2 … overlay10. Default: main')
 
+const regionField = z
+  .object({
+    x: z.number(),
+    y: z.number(),
+    w: z.number(),
+    h: z.number(),
+  })
+  .nullable()
+  .optional()
+  .describe(
+    'Optional region of the frame, fractions of the canvas from the top-left, or null for the whole frame. Top half: {x:0,y:0,w:1,h:0.5}. Bottom half: {x:0,y:0.5,w:1,h:0.5}. The clip covers this rectangle; scale, x and y then apply inside it (0 is centered in the region).',
+  )
+
 const INSTRUCTIONS = `minicut is a local video editor. You edit a timeline; the user watches the same project live in the browser at ${BASE}.
 
 How to work:
 1. get_project first. Times are seconds. Tracks: main (clips play one after another, deleting a clip shifts the rest) and overlay, overlay2 … overlay10 (free clips placed by "start"; a higher number is drawn on top).
 2. import_media with an absolute path (inside the user's home or temp folder, video files only), then add_clip with in/out inside the source file.
-3. Cut with split / trim / remove_clip, reorder with move_clip, tune a clip with set_clip (scale 1 covers the canvas, x/y are fractions of the canvas, volume 0..2, fadeIn/fadeOut seconds). Overlays are muted by default.
+3. Cut with split / trim / remove_clip, reorder with move_clip, tune a clip with set_clip (scale 1 covers the canvas or its region; x/y are fractions of that area, 0 is centered; region null is the full frame, top half {x:0,y:0,w:1,h:0.5}, bottom half {x:0,y:0.5,w:1,h:0.5}; volume 0..2, fadeIn/fadeOut seconds). Overlays are muted by default.
 4. Captions: add_text or import_subtitles (.srt/.ass), style them with set_style. Speech: speech_status, then transcribe (local whisper.cpp, set language when known), get_transcript to read it, find_in_transcript / find_repeats to locate phrases and repeated takes, cut_source_range to remove them, subtitles_from_transcript for captions.
 5. Prefer small steps and call get_project to check the result. Every change can be undone with undo.
 6. preview renders a fast low-quality proxy. render writes the final file only when the user asks for it, to an absolute .mp4 path inside the allowed folders.
@@ -168,12 +181,22 @@ mcp.registerTool(
   'set_clip',
   {
     description:
-      'Set scale, position, volume, mute, fades, name, or overlay start on one clip. scale 1 covers the canvas. x and y are offsets as fractions of the canvas, 0 is centered. volume is 0..2.',
+      'Set scale, position, region, volume, mute, fades, name, or overlay start on one clip. scale 1 covers the canvas, or the region when one is set. x and y are offsets as fractions of that area, 0 is centered. volume is 0..2. region null is the full frame; top half is {x:0,y:0,w:1,h:0.5}, bottom half is {x:0,y:0.5,w:1,h:0.5}.',
     inputSchema: {
       clipId: z.string().describe('Clip id'),
-      scale: z.number().optional().describe('Zoom multiplier on top of canvas cover, 1 = cover'),
-      x: z.number().optional().describe('Horizontal offset as a fraction of canvas width'),
-      y: z.number().optional().describe('Vertical offset as a fraction of canvas height'),
+      scale: z
+        .number()
+        .optional()
+        .describe('Zoom multiplier on top of cover, 1 = cover the frame or the region'),
+      x: z
+        .number()
+        .optional()
+        .describe('Horizontal offset as a fraction of the canvas, or of the region when set'),
+      y: z
+        .number()
+        .optional()
+        .describe('Vertical offset as a fraction of the canvas, or of the region when set'),
+      region: regionField,
       volume: z.number().optional().describe('Linear gain from 0 to 2'),
       muted: z.boolean().optional().describe('Replace the clip audio with silence'),
       fadeIn: z.number().optional().describe('Fade-in length in seconds'),
@@ -188,12 +211,14 @@ mcp.registerTool(
 mcp.registerTool(
   'set_clips',
   {
-    description: 'Apply one patch to several clips (multi-selection).',
+    description:
+      'Apply one patch to several clips (multi-selection). region null is the full frame; top half is {x:0,y:0,w:1,h:0.5}, bottom half is {x:0,y:0.5,w:1,h:0.5}.',
     inputSchema: {
       clipIds: z.array(z.string()).describe('Clip ids to update'),
       scale: z.number().optional(),
       x: z.number().optional(),
       y: z.number().optional(),
+      region: regionField,
       volume: z.number().optional(),
       muted: z.boolean().optional(),
       fadeIn: z.number().optional(),

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Clip `region`: cover part of the frame instead of the whole canvas (full frame, top half, bottom half, or custom `{x,y,w,h}`), so two videos can split the screen
 - Local speech recognition with whisper.cpp: `transcribe`, `get_transcript`, `find_in_transcript`, `find_repeats`, `cut_source_range`, `subtitles_from_transcript`, a transcript panel in the editor, and `npm run setup:speech` for macOS, Windows and Linux
 - The API and events send `wordCount` instead of every word
 

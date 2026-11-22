@@ -57,6 +57,7 @@ export function clearMain() {
     } catch {
       /* уже пустой */
     }
+    applyFrame(video, null)
   }
   state.front = 0
 }
@@ -76,6 +77,7 @@ function releaseOverlayVideo(video) {
   } catch {
     /* уже пустой */
   }
+  applyFrame(video, null)
 }
 
 function clearOverlay() {

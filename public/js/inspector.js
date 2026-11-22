@@ -7,6 +7,36 @@ import { $, overlayVideos, state } from './state.js'
 import { fillStyleForm, fillTextForm, renderTextList } from './texts.js'
 import { CLIP_LIMITS, clamp, round3 } from './util.js'
 
+const REGION_TOP = { x: 0, y: 0, w: 1, h: 0.5 }
+const REGION_BOTTOM = { x: 0, y: 0.5, w: 1, h: 0.5 }
+
+function sameRegion(a, b) {
+  if (!a && !b) return true
+  if (!a || !b) return false
+  return ['x', 'y', 'w', 'h'].every((key) => Math.abs(Number(a[key]) - Number(b[key])) < 0.001)
+}
+
+function regionChoice(region) {
+  if (!region) return 'full'
+  if (sameRegion(region, REGION_TOP)) return 'top'
+  if (sameRegion(region, REGION_BOTTOM)) return 'bottom'
+  return 'custom'
+}
+
+function regionFromChoice(choice) {
+  if (choice === 'top') return { ...REGION_TOP }
+  if (choice === 'bottom') return { ...REGION_BOTTOM }
+  return null
+}
+
+function fillRegion(clip) {
+  const select = $('prop-region')
+  const custom = select.querySelector('option[value="custom"]')
+  const choice = regionChoice(clip.region)
+  custom.hidden = choice !== 'custom'
+  select.value = choice
+}
+
 function clipHeading() {
   const clip = primaryClip()
   if (!clip) return ''
@@ -43,6 +73,7 @@ export function fillClipForm() {
   $('prop-fade-in').value = String(clip.fadeIn ?? 0)
   $('prop-fade-out').value = String(clip.fadeOut ?? 0)
   $('prop-mute').checked = Boolean(clip.muted)
+  fillRegion(clip)
 }
 
 export function setPair(id, value) {
@@ -142,6 +173,25 @@ export function bindInspector() {
   bindClipNumber('prop-volume', 'volume', true)
   bindFade('prop-fade-in', 'fadeIn')
   bindFade('prop-fade-out', 'fadeOut')
+  $('prop-region').addEventListener('change', () => {
+    const clip = primaryClip()
+    if (!clip) return
+    const select = $('prop-region')
+    const choice = select.value
+    if (choice === 'custom') return
+    select.querySelector('option[value="custom"]').hidden = true
+    const region = regionFromChoice(choice)
+    if (sameRegion(clip.region, region)) return
+    state.previewPatch = { id: clip.id, region }
+    paintCanvas()
+    void postOp('setClip', { clipId: clip.id, region }).catch(async () => {
+      try {
+        hooks.applyProject(await request('GET', '/api/project'))
+      } catch {
+        /* статус уже есть */
+      }
+    })
+  })
   $('prop-mute').addEventListener('change', () => {
     const clip = primaryClip()
     if (!clip) return

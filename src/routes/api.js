@@ -3,7 +3,7 @@ import path from 'node:path'
 import * as ops from '../ops.js'
 import { VIDEO_EXT, checkPath } from '../paths.js'
 
-const CLIP_PATCH_KEYS = ['scale', 'x', 'y', 'volume', 'muted', 'fadeIn', 'fadeOut', 'name', 'start']
+const CLIP_PATCH_KEYS = ['scale', 'x', 'y', 'region', 'volume', 'muted', 'fadeIn', 'fadeOut', 'name', 'start']
 
 const clients = new Set()
 

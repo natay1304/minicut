@@ -26,11 +26,56 @@ import {
   state,
 } from './state.js'
 
+function frameRegion(clip) {
+  const region = clip?.region
+  if (!region || typeof region !== 'object') return null
+  const x = Number(region.x)
+  const y = Number(region.y)
+  const w = Number(region.w)
+  const h = Number(region.h)
+  if (![x, y, w, h].every((n) => Number.isFinite(n)) || !(w > 0) || !(h > 0)) return null
+  return { x, y, w, h }
+}
+
+function clearFrameBox(video) {
+  video.style.left = ''
+  video.style.top = ''
+  video.style.right = ''
+  video.style.bottom = ''
+  video.style.width = ''
+  video.style.height = ''
+  video.style.clipPath = ''
+  video.style.objectFit = ''
+}
+
 export function applyFrame(video, clip) {
   const scale = Number(clip?.scale ?? 1)
   const x = Number(clip?.x ?? 0)
   const y = Number(clip?.y ?? 0)
-  video.style.transform = `translate(${(Number.isFinite(x) ? x : 0) * 100}%, ${(Number.isFinite(y) ? y : 0) * 100}%) scale(${Number.isFinite(scale) && scale > 0 ? scale : 1})`
+  const safeScale = Number.isFinite(scale) && scale > 0 ? scale : 1
+  const safeX = Number.isFinite(x) ? x : 0
+  const safeY = Number.isFinite(y) ? y : 0
+  const region = frameRegion(clip)
+  if (!region) {
+    clearFrameBox(video)
+    video.style.transform = `translate(${safeX * 100}%, ${safeY * 100}%) scale(${safeScale})`
+    return
+  }
+  // Бокс больше области на scale и сдвиг; clip-path в координатах бокса возвращает видимое к области.
+  const left = (region.x + region.w * ((1 - safeScale) / 2 + safeX)) * 100
+  const top = (region.y + region.h * ((1 - safeScale) / 2 + safeY)) * 100
+  const half = ((safeScale - 1) / (2 * safeScale)) * 100
+  const ox = (safeX / safeScale) * 100
+  const oy = (safeY / safeScale) * 100
+  video.style.left = `${left}%`
+  video.style.top = `${top}%`
+  video.style.right = 'auto'
+  video.style.bottom = 'auto'
+  video.style.width = `${region.w * safeScale * 100}%`
+  video.style.height = `${region.h * safeScale * 100}%`
+  video.style.objectFit = 'cover'
+  video.style.transform = 'none'
+  video.style.clipPath = `inset(${half - oy}% ${half + ox}% ${half + oy}% ${half - ox}%)`
 }
 
 export function paintCanvas() {
