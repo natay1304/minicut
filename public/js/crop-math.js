@@ -213,6 +213,75 @@ export function keepPicture(before, after, x, y, scale = 1) {
 }
 
 /**
+ * Где лежит картинка клипа на холсте. Считается так же, как собирает экспорт (src/ffmpeg.js, regionChain):
+ * всё видео масштабируется cover по области и умножается на scale, затем окно области вырезается из картинки.
+ * Если картинка больше области, сдвиг зажат так, чтобы поля не появлялись; если меньше, она не выходит за область.
+ * Возвращает прямоугольник картинки в долях холста и фактический сдвиг (после зажима) в долях области.
+ * @param {{ x: number, y: number, w: number, h: number }} frame область (весь кадр: {0,0,1,1})
+ * @param {{ x?: number, y?: number }} offset
+ * @param {number} scale
+ * @param {{ mediaW: number, mediaH: number, canvasW: number, canvasH: number }} geo
+ * @returns {{ left: number, top: number, width: number, height: number, x: number, y: number }}
+ */
+export function placeImage(frame, offset, scale, geo) {
+  const s = finite(scale, 1) > 0 ? finite(scale, 1) : 1
+  const fw = frame.w * geo.canvasW
+  const fh = frame.h * geo.canvasH
+  const cover = Math.max((fw * s) / geo.mediaW, (fh * s) / geo.mediaH)
+  const iw = geo.mediaW * cover
+  const ih = geo.mediaH * cover
+  const axis = (image, window, shift) => {
+    if (image > window) {
+      const start = clamp((image - window) / 2 - shift, 0, image - window)
+      return { at: -start, shift: (image - window) / 2 - start }
+    }
+    const pad = clamp((window - image) / 2 + shift, 0, window - image)
+    return { at: pad, shift: pad - (window - image) / 2 }
+  }
+  const ax = axis(iw, fw, finite(offset?.x, 0) * fw)
+  const ay = axis(ih, fh, finite(offset?.y, 0) * fh)
+  return {
+    left: (frame.x * geo.canvasW + ax.at) / geo.canvasW,
+    top: (frame.y * geo.canvasH + ay.at) / geo.canvasH,
+    width: iw / geo.canvasW,
+    height: ih / geo.canvasH,
+    x: fw > 0 ? ax.shift / fw : 0,
+    y: fh > 0 ? ay.shift / fh : 0,
+  }
+}
+
+/**
+ * Сдвиг, который реально виден (экспорт зажимает остальное). Нужен, чтобы поля в панели и жесты
+ * не копили «мёртвый» сдвиг за краем картинки.
+ */
+export function clampOffset(frame, offset, scale, geo) {
+  const placed = placeImage(frame, offset, scale, geo)
+  return { x: clamp(placed.x, -SHIFT_MAX, SHIFT_MAX), y: clamp(placed.y, -SHIFT_MAX, SHIFT_MAX) }
+}
+
+/**
+ * Смена рамки при обрезке так, чтобы картинка осталась на месте и не изменила размер:
+ * подбирает scale (cover считается по новой области) и сдвиг. Нужны размеры видео и холста.
+ * @returns {{ x: number, y: number, scale: number }}
+ */
+export function keepPictureCover(before, after, x, y, scale, geo) {
+  const was = placeImage(before, { x, y }, scale, geo)
+  const area = (frame) => Math.max((frame.w * geo.canvasW) / geo.mediaW, (frame.h * geo.canvasH) / geo.mediaH)
+  const nextScale = clamp((finite(scale, 1) * area(before)) / area(after), SCALE_MIN, SCALE_MAX)
+  const centerX = was.left + was.width / 2
+  const centerY = was.top + was.height / 2
+  const nextX = after.w > 0 ? (centerX - (after.x + after.w / 2)) / after.w : 0
+  const nextY = after.h > 0 ? (centerY - (after.y + after.h / 2)) / after.h : 0
+  const kept = clampOffset(
+    after,
+    { x: clamp(nextX, -SHIFT_MAX, SHIFT_MAX), y: clamp(nextY, -SHIFT_MAX, SHIFT_MAX) },
+    nextScale,
+    geo,
+  )
+  return { x: kept.x, y: kept.y, scale: nextScale }
+}
+
+/**
  * Панорамирование: сдвиг указателя в пикселях делится на ширину и высоту рамки в пикселях.
  * Вправо и вниз увеличивают x и y. Результат зажат в ±4.
  * @param {{ x?: number, y?: number }} offset

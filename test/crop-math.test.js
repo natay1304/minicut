@@ -6,7 +6,10 @@ import {
   SCALE_MIN,
   SHIFT_MAX,
   clipFrame,
+  clampOffset,
   keepPicture,
+  keepPictureCover,
+  placeImage,
   panContent,
   regionFromFrame,
   resizeFrame,
@@ -156,4 +159,82 @@ test('масштаб и сдвиг зажимаются по границам', 
   assert.ok(fine < coarse)
   assert.equal(wheelFactor(100000, false), 0.5)
   assert.equal(wheelFactor(0, false), 1)
+})
+
+// Эталон: те же выражения, что в src/ffmpeg.js (regionChain), в пикселях без округления до чётных.
+function exportPlacement(frame, x, y, scale, geo) {
+  const fw = frame.w * geo.canvasW
+  const fh = frame.h * geo.canvasH
+  const f = Math.max((fw * scale) / geo.mediaW, (fh * scale) / geo.mediaH)
+  const iw = geo.mediaW * f
+  const ih = geo.mediaH * f
+  const axis = (image, win, d) => {
+    if (image > win) return -Math.max(0, Math.min(image - win, (image - win) / 2 - d))
+    return Math.max(0, Math.min(win - image, (win - image) / 2 + d))
+  }
+  return {
+    left: frame.x * geo.canvasW + axis(iw, fw, x * fw),
+    top: frame.y * geo.canvasH + axis(ih, fh, y * fh),
+    width: iw,
+    height: ih,
+  }
+}
+
+const GEO = { mediaW: 1080, mediaH: 1920, canvasW: 1080, canvasH: 1920 }
+const closeTo = (a, b, eps = 1e-6) => assert.ok(Math.abs(a - b) < eps, `${a} != ${b}`)
+
+test('placeImage повторяет расчёт экспорта (ffmpeg)', () => {
+  const frames = [
+    { x: 0, y: 0, w: 1, h: 1 },
+    { x: 0, y: 0, w: 1, h: 0.5 },
+    { x: 0, y: 0.5, w: 1, h: 0.5 },
+    { x: 0.1, y: 0.607, w: 0.7, h: 0.393 },
+  ]
+  const shifts = [
+    [0, 0, 1],
+    [0, 0.33, 1.12],
+    [0.014, 0.65, 1],
+    [0, 0.5, 1],
+    [3, -3, 2],
+    [0.2, 0.2, 0.5],
+    [-0.4, 0.9, 0.2],
+  ]
+  for (const frame of frames) {
+    for (const [x, y, scale] of shifts) {
+      const got = placeImage(frame, { x, y }, scale, GEO)
+      const want = exportPlacement(frame, x, y, scale, GEO)
+      closeTo(got.left * GEO.canvasW, want.left, 1e-6)
+      closeTo(got.top * GEO.canvasH, want.top, 1e-6)
+      closeTo(got.width * GEO.canvasW, want.width, 1e-6)
+      closeTo(got.height * GEO.canvasH, want.height, 1e-6)
+    }
+  }
+})
+
+test('placeImage: картинка с запасом по высоте не оставляет чёрного сверху при сдвиге вниз', () => {
+  // верхняя половина, портрет 1080x1920, сдвиг 0.33: окно области всё ещё внутри картинки
+  const frame = { x: 0, y: 0, w: 1, h: 0.5 }
+  const placed = placeImage(frame, { x: 0, y: 0.33 }, 1.12, GEO)
+  assert.ok(placed.top <= frame.y + 1e-9, 'верх картинки не ниже верха области')
+  assert.ok(placed.top + placed.height >= frame.y + frame.h - 1e-9, 'низ картинки не выше низа области')
+})
+
+test('clampOffset: сдвиг за краем картинки зажимается, как в экспорте', () => {
+  const frame = { x: 0, y: 0, w: 1, h: 0.5 }
+  const big = clampOffset(frame, { x: 0, y: 3 }, 1, GEO)
+  // картинка 1080x1920 в окне 1080x960: максимум сдвига вниз (1920-960)/2 / 960 = 0.5
+  closeTo(big.y, 0.5)
+  assert.equal(clampOffset(frame, { x: 0, y: 0.2 }, 1, GEO).y, 0.2)
+})
+
+test('keepPictureCover: при обрезке стороны картинка остаётся на месте и того же размера', () => {
+  const before = { x: 0, y: 0, w: 1, h: 1 }
+  const after = { x: 0, y: 0, w: 1, h: 0.5 }
+  const was = placeImage(before, { x: 0, y: 0 }, 1, GEO)
+  const next = keepPictureCover(before, after, 0, 0, 1, GEO)
+  const now = placeImage(after, { x: next.x, y: next.y }, next.scale, GEO)
+  closeTo(now.left, was.left)
+  closeTo(now.top, was.top)
+  closeTo(now.width, was.width)
+  closeTo(now.height, was.height)
 })

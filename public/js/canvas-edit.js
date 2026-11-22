@@ -8,6 +8,8 @@ import {
   SHIFT_MAX,
   clipFrame,
   keepPicture,
+  keepPictureCover,
+  clampOffset,
   panContent,
   regionFromFrame,
   resizeFrame,
@@ -15,7 +17,7 @@ import {
   zoomAtPoint,
 } from './crop-math.js'
 import { hooks } from './hooks.js'
-import { clipById, locate, mainDuration, primaryClip, viewClip } from './project-model.js'
+import { clipById, locate, mainDuration, mediaById, primaryClip, viewClip } from './project-model.js'
 import { $, state } from './state.js'
 import { clamp, round3 } from './util.js'
 
@@ -119,6 +121,15 @@ function sameRegion(a, b) {
   if (!a && !b) return true
   if (!a || !b) return false
   return a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h
+}
+
+// Размеры видео и холста нужны, чтобы считать картинку так же, как экспорт (см. placeImage в crop-math.js).
+function geometryFor(clipId) {
+  const clip = clipById(clipId)?.clip
+  const media = clip ? mediaById(clip.mediaId) : null
+  const canvas = state.project?.canvas
+  if (!media?.width || !media?.height || !canvas?.width || !canvas?.height) return null
+  return { mediaW: media.width, mediaH: media.height, canvasW: canvas.width, canvasH: canvas.height }
 }
 
 function differs(clip, packed) {
@@ -256,8 +267,11 @@ function onMove(event) {
   let fields
   if (session.handle) {
     const frame = resizeFrame(session.frame, session.handle, dx, dy, { snap: !event.altKey })
-    const kept = keepPicture(session.frame, frame, session.x, session.y, session.scale)
-    fields = { region: regionFromFrame(frame), scale: session.scale, x: kept.x, y: kept.y }
+    const geo = geometryFor(session.clipId)
+    const kept = geo
+      ? keepPictureCover(session.frame, frame, session.x, session.y, session.scale, geo)
+      : { ...keepPicture(session.frame, frame, session.x, session.y, session.scale), scale: session.scale }
+    fields = { region: regionFromFrame(frame), scale: kept.scale, x: kept.x, y: kept.y }
     document.documentElement.style.cursor = CURSORS[session.handle] || ''
   } else {
     const pan = panContent(
@@ -267,7 +281,9 @@ function onMove(event) {
       session.frame.w * rect.width,
       session.frame.h * rect.height,
     )
-    fields = { region: session.region, scale: session.scale, x: pan.x, y: pan.y }
+    const geo = geometryFor(session.clipId)
+    const seen = geo ? clampOffset(session.frame, pan, session.scale, geo) : pan
+    fields = { region: session.region, scale: session.scale, x: seen.x, y: seen.y }
     document.documentElement.style.cursor = 'move'
   }
   session.fields = fields
@@ -362,11 +378,13 @@ function onWheel(event) {
     point.x,
     point.y,
   )
+  const geo = geometryFor(clip.id)
+  const seen = geo ? clampOffset(clipFrame(view), next, next.scale, geo) : next
   showLive(clip.id, {
     region: copyRegion(view.region),
     scale: next.scale,
-    x: next.x,
-    y: next.y,
+    x: seen.x,
+    y: seen.y,
   })
   scheduleWheel(clip.id)
 }

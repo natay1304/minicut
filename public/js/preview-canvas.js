@@ -1,3 +1,4 @@
+import { placeImage } from './crop-math.js'
 import { hooks } from './hooks.js'
 import {
   canvasInfo,
@@ -55,27 +56,38 @@ export function applyFrame(video, clip) {
   const safeScale = Number.isFinite(scale) && scale > 0 ? scale : 1
   const safeX = Number.isFinite(x) ? x : 0
   const safeY = Number.isFinite(y) ? y : 0
-  const region = frameRegion(clip)
-  if (!region) {
+  const media = clip ? mediaById(clip.mediaId) : null
+  const canvas = state.project?.canvas
+  if (!media?.width || !media?.height || !canvas?.width || !canvas?.height) {
+    // Размеры неизвестны: старый способ без точного совпадения с экспортом.
     clearFrameBox(video)
     video.style.transform = `translate(${safeX * 100}%, ${safeY * 100}%) scale(${safeScale})`
     return
   }
-  // Бокс больше области на scale и сдвиг; clip-path в координатах бокса возвращает видимое к области.
-  const left = (region.x + region.w * ((1 - safeScale) / 2 + safeX)) * 100
-  const top = (region.y + region.h * ((1 - safeScale) / 2 + safeY)) * 100
-  const half = ((safeScale - 1) / (2 * safeScale)) * 100
-  const ox = (safeX / safeScale) * 100
-  const oy = (safeY / safeScale) * 100
-  video.style.left = `${left}%`
-  video.style.top = `${top}%`
+  // Картинка кладётся так же, как в экспорте (см. placeImage): всё видео, cover по области, затем окно области.
+  const frame = frameRegion(clip) || { x: 0, y: 0, w: 1, h: 1 }
+  const image = placeImage(frame, { x: safeX, y: safeY }, safeScale, {
+    mediaW: media.width,
+    mediaH: media.height,
+    canvasW: canvas.width,
+    canvasH: canvas.height,
+  })
+  const pct = (n) => `${n * 100}%`
+  video.style.left = pct(image.left)
+  video.style.top = pct(image.top)
   video.style.right = 'auto'
   video.style.bottom = 'auto'
-  video.style.width = `${region.w * safeScale * 100}%`
-  video.style.height = `${region.h * safeScale * 100}%`
-  video.style.objectFit = 'cover'
+  video.style.width = pct(image.width)
+  video.style.height = pct(image.height)
+  video.style.objectFit = 'fill'
   video.style.transform = 'none'
-  video.style.clipPath = `inset(${half - oy}% ${half + ox}% ${half + oy}% ${half - ox}%)`
+  // clip-path в координатах картинки возвращает видимое к области (отрицательный отступ: там поля).
+  const inset = (n, size) => `${(n / size) * 100}%`
+  const top = frame.y - image.top
+  const left = frame.x - image.left
+  const right = image.left + image.width - (frame.x + frame.w)
+  const bottom = image.top + image.height - (frame.y + frame.h)
+  video.style.clipPath = `inset(${inset(top, image.height)} ${inset(right, image.width)} ${inset(bottom, image.height)} ${inset(left, image.width)})`
 }
 
 export function paintCanvas() {
