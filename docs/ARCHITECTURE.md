@@ -24,6 +24,10 @@ Claude (MCP)       ──stdio────►  src/mcp.js ──HTTP──┘   
 | `ops/texts.js` | подписи, стили, импорт `.srt`/`.ass`, транскрипт |
 | `ops/silence.js` | поиск и вырезание пауз |
 | `ops/render.js` | план рендера, экспорт, предпросмотр, отмена |
+| `ops/speech.js` | расшифровка, поиск, дубли, вырезание по тексту, подписи из расшифровки |
+| `speech/engine.js` | поиск whisper.cpp и модели, запуск, прогресс (macOS, Windows, Linux) |
+| `speech/words.js` | чистые функции: разбор результата, фразы, поиск, дубли, перенос слов на таймлайн |
+| `speech/setup.js` | установка whisper.cpp и модели (`npm run setup:speech`) |
 | `ffmpeg.js` | `ffprobe`, `silencedetect`, сборка `filter_complex`, запуск ffmpeg |
 | `textrender.js` | текст в PNG через `@napi-rs/canvas` (в ffmpeg нет `drawtext`) |
 | `mcp.js` | MCP-сервер (stdio), тонкая обёртка над HTTP API |

@@ -225,6 +225,56 @@
           </div>
         </section>
 
+        <section class="panel" id="transcript-panel">
+          <div class="panel-head">Расшифровка</div>
+          <div class="panel-body">
+            <div class="stack-form tight">
+              <label for="transcript-media">Медиа</label>
+              <select id="transcript-media"></select>
+              <label for="transcript-lang">Язык</label>
+              <select id="transcript-lang">
+                <option value="auto">Авто</option>
+                <option value="ru">Русский</option>
+                <option value="en">English</option>
+              </select>
+              <div class="row" id="transcript-run-row">
+                <button type="button" id="transcript-run" class="primary" disabled>Расшифровать</button>
+                <button type="button" id="transcript-cancel" hidden>Отмена</button>
+              </div>
+              <div id="transcript-setup" class="transcript-setup" hidden>
+                <p>Распознавание речи не установлено</p>
+                <pre
+                  class="transcript-code"
+                  aria-label="Команда установки"
+                ><code id="transcript-hint"></code></pre>
+                <button type="button" id="transcript-copy">Копировать</button>
+              </div>
+              <div
+                id="transcript-progress"
+                class="transcript-progress"
+                role="progressbar"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                aria-valuenow="0"
+                aria-label="Прогресс расшифровки"
+                hidden
+              >
+                <div id="transcript-progress-bar" class="transcript-progress-bar"></div>
+              </div>
+              <p class="transcript-status-line">
+                <span id="transcript-status" role="status"></span>
+                <span id="transcript-pct"></span>
+              </p>
+              <div class="row">
+                <button type="button" id="transcript-repeats" disabled>Найти дубли</button>
+                <button type="button" id="transcript-subs" disabled>Субтитры из текста</button>
+              </div>
+            </div>
+            <p id="transcript-empty" class="empty-note">Расшифровки пока нет</p>
+            <ul id="transcript-list" class="file-list"></ul>
+          </div>
+        </section>
+
         <section class="panel">
           <div class="panel-head" id="style-heading">Стиль «sub»</div>
           <form id="style-form" class="panel-body">

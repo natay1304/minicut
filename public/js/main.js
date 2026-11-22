@@ -13,6 +13,7 @@ import { pruneSelection, selectOnly } from './selection.js'
 import { bindShortcuts } from './shortcuts.js'
 import { state } from './state.js'
 import { activeStyle, bindTexts } from './texts.js'
+import { bindTranscript, onTranscribeProgress, renderTranscript } from './transcript.js'
 import { onClipPointerDown, startBackground } from './timeline-drag.js'
 import { bindTimeline, renderTimeline } from './timeline.js'
 import { startTrim } from './timeline-trim.js'
@@ -76,6 +77,7 @@ function renderAll() {
   renderTimeline()
   renderInspector()
   renderProjectButton()
+  renderTranscript()
 }
 
 function connectEvents() {
@@ -95,6 +97,13 @@ function connectEvents() {
       /* битый пакет */
     }
   })
+  source.addEventListener('transcribe-progress', (event) => {
+    try {
+      onTranscribeProgress(JSON.parse(event.data))
+    } catch {
+      /* битый пакет */
+    }
+  })
 }
 
 function bind() {
@@ -104,6 +113,7 @@ function bind() {
   bindTimeline()
   bindInspector()
   bindTexts()
+  bindTranscript()
   bindProjects()
   bindExport()
   bindShortcuts()

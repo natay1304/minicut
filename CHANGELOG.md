@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Local speech recognition with whisper.cpp: `transcribe`, `get_transcript`, `find_in_transcript`, `find_repeats`, `cut_source_range`, `subtitles_from_transcript`, a transcript panel in the editor, and `npm run setup:speech` for macOS, Windows and Linux
+- The API and events send `wordCount` instead of every word
+
 ## 0.1.0
 
 First public release.

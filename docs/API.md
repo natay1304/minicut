@@ -9,7 +9,7 @@
 | POST | `/api/op` | `{ "op": "...", "args": { ... } }` → `{ project, result }` |
 | POST | `/api/import` | `{ "path": "/abs/file.mp4" }` |
 | GET | `/api/browse?dir=` | видеофайлы в папке |
-| GET | `/api/events` | SSE: события `project` и `render-progress` |
+| GET | `/api/events` | SSE: события `project`, `render-progress` и `transcribe-progress` |
 | POST | `/api/render` | `{ output, width?, height?, fps?, crf?, preset?, audioBitrate?, loudnorm? }` |
 | POST | `/api/render/cancel` | отмена экспорта |
 | POST | `/api/preview` | прокси 540×960; результат на `/preview.mp4` |
@@ -32,6 +32,10 @@
 | `setCanvas` | `set_canvas` | размер и fps холста |
 | `addText`, `setText`, `removeText`, `setStyle` | `add_text`, `set_text`, `remove_text`, `set_style` | подписи и стили |
 | `importSubtitles`, `importTranscript` | `import_subtitles`, `import_transcript` | `.srt`/`.ass` и слова транскрипции |
+| `speechState` | `speech_status` | установлено ли распознавание речи |
+| `transcribe`, `cancelTranscribe` | `transcribe`, `cancel_transcribe` | расшифровка речи (whisper.cpp), прогресс по SSE `transcribe-progress` |
+| `getTranscript`, `findInTranscript`, `findRepeats` | `get_transcript`, `find_in_transcript`, `find_repeats` | текст фразами, поиск фраз, повторные дубли |
+| `cutSourceRange`, `subtitlesFromTranscript` | `cut_source_range`, `subtitles_from_transcript` | вырезать интервал исходника, подписи из расшифровки |
 | `listProjects`, `newProject`, `loadProject`, `saveProjectAs` | `list_projects`, `new_project`, `load_project`, `save_project_as` | проекты |
 | `undo`, `redo` | `undo`, `redo` | история |
 | `render`, `cancelRender`, `preview` | `render`, `cancel_render`, `preview` | экспорт |
