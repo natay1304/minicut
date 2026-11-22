@@ -31,7 +31,7 @@ function silenceCut(interval, clip, pad) {
   return { start: round3(start), end: round3(end) }
 }
 
-function keepRanges(clip, silences, pad) {
+export function keepRanges(clip, silences, pad) {
   const cuts = []
   for (const interval of silences) {
     const cut = silenceCut(interval, clip, pad)

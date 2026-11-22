@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "format": "prettier --write src public test scripts *.js",
     "format:check": "prettier --check src public test scripts *.js",
-    "mcp:install": "node scripts/install-mcp.mjs"
+    "mcp:install": "node scripts/install-mcp.mjs",
+    "setup:speech": "node scripts/setup-speech.mjs"
   },
   "keywords": [
     "video-editor",

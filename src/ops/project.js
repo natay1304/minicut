@@ -95,6 +95,7 @@ function normalizeMedia(item) {
     hasAudio: Boolean(item.hasAudio),
   }
   if (Array.isArray(item.words)) media.words = item.words
+  if (typeof item.language === 'string') media.language = item.language
   return media
 }
 

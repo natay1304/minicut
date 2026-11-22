@@ -49,6 +49,12 @@ test('MCP: initialize, instructions и список инструментов', {
       'set_clip',
       'render',
       'move_clip_to_track',
+      'transcribe',
+      'get_transcript',
+      'find_repeats',
+      'cut_source_range',
+      'subtitles_from_transcript',
+      'speech_status',
     ]) {
       assert.ok(names.includes(name), `нет инструмента ${name}`)
     }
