@@ -140,12 +140,17 @@ input[type='checkbox'] {
 }
 
 .app {
+  position: relative;
   height: 100%;
   min-width: 0;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(200px, 280px) minmax(0, 1fr) minmax(220px, 300px);
-  grid-template-rows: auto minmax(0, 1fr) minmax(210px, 250px);
+  /* --col-lib, --col-insp, --row-time задаёт panels.js, когда размер панели меняют мышью */
+  grid-template-columns: var(--col-lib, minmax(200px, 280px)) minmax(0, 1fr) var(
+      --col-insp,
+      minmax(220px, 300px)
+    );
+  grid-template-rows: auto minmax(0, 1fr) var(--row-time, minmax(210px, 250px));
   grid-template-areas:
     'top top top'
     'lib stage inspector'
@@ -1160,9 +1165,9 @@ dialog h2 {
 @media (max-width: 1100px) {
   .app {
     grid-template-columns:
-      minmax(136px, min(200px, 18vw))
+      var(--col-lib, minmax(136px, min(200px, 18vw)))
       minmax(0, 1fr)
-      minmax(156px, min(220px, 20vw));
+      var(--col-insp, minmax(156px, min(220px, 20vw)));
   }
 
   .top-actions {

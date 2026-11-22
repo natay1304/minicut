@@ -4,6 +4,7 @@ import { bindExport, showProgress } from './export.js'
 import { hooks } from './hooks.js'
 import { bindInspector, fillClipForm, renderInspector, setPair } from './inspector.js'
 import { bindLibrary, renderLibrary, renderProjectButton } from './library.js'
+import { bindPanels } from './panels.js'
 import { bindPlayback, pausePlayback, resyncPlayback } from './playback.js'
 import { paintCanvas } from './preview-canvas.js'
 import { clearPlayers, frontVideo, showFrame, syncOverlayPool } from './preview-players.js'
@@ -117,6 +118,7 @@ function bind() {
   bindProjects()
   bindExport()
   bindShortcuts()
+  bindPanels()
 }
 
 export async function init() {
