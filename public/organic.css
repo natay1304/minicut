@@ -628,3 +628,44 @@ body.is-resizing .app > :not(.splitter) {
   top: 50%;
   transform: translateY(-50%);
 }
+
+/* Подсказки пути экспорта */
+.combo {
+  position: relative;
+}
+.combo-list {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  z-index: 20;
+  margin: 4px 0 0;
+  padding: 4px;
+  list-style: none;
+  max-height: 220px;
+  overflow-y: auto;
+  background: var(--sunken);
+  color: var(--text);
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.35);
+}
+.combo-item {
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.combo-item.is-dir::before {
+  content: '▸ ';
+  color: var(--muted);
+}
+.combo-item.is-active {
+  background: var(--paper);
+  color: var(--paper-ink);
+}
+.combo-item.is-active::before {
+  color: var(--paper-ink);
+}

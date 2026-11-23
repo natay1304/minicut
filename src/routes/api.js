@@ -1,7 +1,8 @@
 import { existsSync, readdirSync, statSync } from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import * as ops from '../ops.js'
-import { VIDEO_EXT, checkPath } from '../paths.js'
+import { OUTPUT_EXT, VIDEO_EXT, checkPath } from '../paths.js'
 
 const CLIP_PATCH_KEYS = ['scale', 'x', 'y', 'region', 'volume', 'muted', 'fadeIn', 'fadeOut', 'name', 'start']
 
@@ -55,6 +56,14 @@ export function mountApi(app) {
   app.get('/api/browse', (req, res, next) => {
     try {
       res.json(listVideos(req.query.dir))
+    } catch (err) {
+      next(err)
+    }
+  })
+
+  app.get('/api/complete', (req, res, next) => {
+    try {
+      res.json({ items: completePath(req.query.path) })
     } catch (err) {
       next(err)
     }
@@ -295,4 +304,35 @@ function listVideos(dir) {
     .map((entry) => ({ name: entry.name, path: path.join(abs, entry.name) }))
     .sort((a, b) => a.name.localeCompare(b.name))
   return { dir: abs, files }
+}
+
+/**
+ * Подсказки для поля пути экспорта: подпапки и готовые видеофайлы, которые начинаются с введённого.
+ * Пустой ввод даёт домашние папки. Вне разрешённых папок и скрытое не показываем.
+ */
+export function completePath(input) {
+  const typed = typeof input === 'string' ? input : ''
+  const home = os.homedir()
+  let text = typed.startsWith('~') ? home + typed.slice(1) : typed
+  if (!text.trim()) text = `${home}${path.sep}`
+  const endsWithSep = /[\\/]$/.test(text)
+  const dir = endsWithSep ? text : path.dirname(text)
+  const prefix = endsWithSep ? '' : path.basename(text).toLowerCase()
+  let abs
+  try {
+    abs = checkPath(dir, { label: 'Папка' })
+    if (!existsSync(abs) || !statSync(abs).isDirectory()) return []
+  } catch {
+    return []
+  }
+  const items = []
+  for (const entry of readdirSync(abs, { withFileTypes: true })) {
+    if (entry.name.startsWith('.') || !entry.name.toLowerCase().startsWith(prefix)) continue
+    const full = path.join(abs, entry.name)
+    if (entry.isDirectory()) items.push({ name: entry.name, path: full + path.sep, kind: 'dir' })
+    else if (entry.isFile() && OUTPUT_EXT.has(path.extname(entry.name).toLowerCase()))
+      items.push({ name: entry.name, path: full, kind: 'file' })
+  }
+  items.sort((a, b) => (a.kind === b.kind ? a.name.localeCompare(b.name) : a.kind === 'dir' ? -1 : 1))
+  return items.slice(0, 12)
 }

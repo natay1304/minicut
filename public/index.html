@@ -453,8 +453,8 @@
     <dialog id="export-dialog">
       <form id="export-form">
         <h2>Экспорт</h2>
-        <label class="field" for="export-path"
-          >Файл
+        <div class="field combo">
+          <label for="export-path">Файл</label>
           <input
             id="export-path"
             class="mono"
@@ -462,8 +462,13 @@
             placeholder="/путь/к/ролику.mp4"
             autocomplete="off"
             spellcheck="false"
+            role="combobox"
+            aria-expanded="false"
+            aria-controls="export-suggest"
+            aria-autocomplete="list"
           />
-        </label>
+          <ul id="export-suggest" class="combo-list" role="listbox" hidden></ul>
+        </div>
         <div class="grid-2">
           <label class="field" for="export-width"
             >Ширина
