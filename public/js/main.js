@@ -14,10 +14,11 @@ import { bindProjects } from './projects.js'
 import { pruneSelection, selectOnly } from './selection.js'
 import { bindShortcuts } from './shortcuts.js'
 import { state } from './state.js'
-import { activeStyle, bindTexts } from './texts.js'
+import { activeStyle, bindTexts, pickText } from './texts.js'
 import { bindTranscript, onTranscribeProgress, renderTranscript } from './transcript.js'
 import { onClipPointerDown, startBackground } from './timeline-drag.js'
 import { bindTimeline, renderTimeline } from './timeline.js'
+import { startCueDrag } from './timeline-cues.js'
 import { startTrim } from './timeline-trim.js'
 
 setApplyProject(applyProject)
@@ -35,6 +36,9 @@ hooks.toggleCrop = toggleCrop
 hooks.startBackground = startBackground
 hooks.onClipPointerDown = onClipPointerDown
 hooks.startTrim = startTrim
+hooks.startCueDrag = startCueDrag
+hooks.pickText = pickText
+hooks.renderTimeline = renderTimeline
 hooks.activeStyle = activeStyle
 hooks.frontVideo = frontVideo
 

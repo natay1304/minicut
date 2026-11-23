@@ -669,3 +669,26 @@ body.is-resizing .app > :not(.splitter) {
 .combo-item.is-active::before {
   color: var(--paper-ink);
 }
+
+/* Дорожка подписей */
+.track-cues .cue {
+  background: var(--paper);
+  color: var(--paper-ink);
+}
+.track-cues .cue::after {
+  display: none;
+}
+.track-cues .cue::before {
+  background: var(--accent);
+}
+.track-cues .cue .clip-meta {
+  color: rgba(26, 28, 37, 0.65);
+}
+.track-cues .cue.is-selected {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+.cue .clip-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
