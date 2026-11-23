@@ -288,6 +288,66 @@ mcp.registerTool(
   async (args) => reply(await op('probe', pack(args))),
 )
 
+const runInput = z.object({
+  mediaId: z.string().optional().describe('Media id from get_project'),
+  path: z.string().optional().describe('Absolute path to a video, audio or image file'),
+  lavfi: z
+    .string()
+    .optional()
+    .describe(
+      'Generated source instead of a file: color, nullsrc, testsrc, testsrc2, smptebars, gradients, sine or anullsrc, e.g. "color=c=black:s=1080x1920:d=3"',
+    ),
+  ss: z.number().optional().describe('Start offset in the input, seconds'),
+  t: z.number().optional().describe('Read only this many seconds'),
+  loop: z.boolean().optional().describe('Loop a still image'),
+})
+
+mcp.registerTool(
+  'ffmpeg_run',
+  {
+    description:
+      'Run ffmpeg on this machine to make a NEW file: stabilize, denoise, colour-grade, mix music, generate backgrounds, convert, extract audio, make a GIF. You give inputs, a filter graph and an output; the command is built for you. Inputs and the output must be inside the allowed folders; an existing file is never overwritten unless overwrite is true, and project sources never. Filters that read files (movie, subtitles, lut3d…) and any network or file: protocols are refused. Use ffmpeg_help to check a filter exists first. With importAs the video result is added to the media library, ready for add_clip. Only one ffmpeg job runs at a time; cancel_render stops it.',
+    inputSchema: {
+      inputs: z.array(runInput).describe('1 to 8 inputs, numbered 0, 1, … in filter graphs'),
+      filterComplex: z
+        .string()
+        .optional()
+        .describe(
+          'Filter graph, e.g. "[0:v]eq=contrast=1.1:saturation=1.2[v]". Label outputs and pass them in maps',
+        ),
+      vf: z.string().optional().describe('Simple video filter chain (instead of filterComplex)'),
+      af: z.string().optional().describe('Simple audio filter chain (instead of filterComplex)'),
+      maps: z.array(z.string()).optional().describe('Streams to keep: 0:v, 1:a:0 or [label]'),
+      output: z.object({
+        path: z
+          .string()
+          .describe(
+            'Absolute output path (.mp4 .mov .mkv .webm .gif .mp3 .wav .m4a .aac .flac .ogg .opus .png .jpg .webp)',
+          ),
+        videoCodec: z
+          .string()
+          .optional()
+          .describe('libx264, libx265, libvpx-vp9, prores_ks, mjpeg, png, gif or copy'),
+        audioCodec: z.string().optional().describe('aac, libmp3lame, pcm_s16le, flac, libopus or copy'),
+        crf: z.number().optional().describe('Quality 0 to 51, lower is better'),
+        preset: z.string().optional().describe('ultrafast … slower'),
+        pixFmt: z.string().optional().describe('yuv420p, yuv422p, yuv444p, yuva420p, rgba or gray'),
+        fps: z.number().optional(),
+        videoBitrate: z.string().optional().describe('For example 4000k'),
+        audioBitrate: z.string().optional().describe('For example 192k'),
+        duration: z.number().optional().describe('Cut the output to this many seconds'),
+        frames: z.number().optional().describe('Stop after this many video frames'),
+        noVideo: z.boolean().optional(),
+        noAudio: z.boolean().optional(),
+      }),
+      overwrite: z.boolean().optional().describe('Replace an existing output file (never a project source)'),
+      importAs: z.boolean().optional().describe('Add the video result to the media library'),
+      timeoutMinutes: z.number().optional().describe('1 to 120, default 20'),
+    },
+  },
+  async (args) => reply(await op('ffmpegRun', pack(args))),
+)
+
 mcp.registerTool(
   'ffmpeg_help',
   {

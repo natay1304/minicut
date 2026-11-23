@@ -167,6 +167,8 @@ function runOp(op, args) {
       return ops.setClip(field(args, 'clipId', 0), clipPatch(args))
     case 'setClips':
       return ops.setClips(field(args, 'clipIds', 0) ?? field(args, 'ids', 0), clipPatch(args))
+    case 'ffmpegRun':
+      return ops.ffmpegRun(objectArgs(args))
     case 'probe':
       return ops.probeFile(objectArgs(args))
     case 'frame':

@@ -36,4 +36,5 @@ export {
   transcribe,
 } from './ops/speech.js'
 export { cancelRender, frame, preview, render, stopRender } from './ops/render.js'
+export { ffmpegRun } from './ops/ffmpeg-run.js'
 export { ffmpegHelp, mediaFrame, probeFile } from './ops/tools.js'

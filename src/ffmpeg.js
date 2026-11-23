@@ -423,6 +423,57 @@ export async function renderFrame(plan, output) {
   return { output }
 }
 
+/**
+ * Запускает один произвольный (уже проверенный) вызов ffmpeg. Делит очередь с рендером:
+ * одновременно работает только одна тяжёлая задача, её можно отменить через cancel_render.
+ */
+export function runJob(args, { output, timeoutMs = 20 * 60 * 1000 } = {}) {
+  if (active) return Promise.reject(new Error('Экспорт или другая задача ffmpeg уже выполняется'))
+  mkdirSync(path.dirname(output), { recursive: true })
+  return new Promise((resolve, reject) => {
+    const child = spawn('ffmpeg', args, { stdio: ['ignore', 'ignore', 'pipe'] })
+    let stderr = ''
+    let settled = false
+    let finishWait = () => {}
+    const finished = new Promise((done) => {
+      finishWait = done
+    })
+    const job = { child, cancelled: false, finished, output }
+    active = job
+    const timer = setTimeout(() => {
+      job.timedOut = true
+      child.kill('SIGKILL')
+    }, timeoutMs)
+    const settle = (err) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      if (active === job) active = null
+      if (err) removeFile(output)
+      if (job.cancelled && err) {
+        const error = new Error('Задача отменена')
+        error.cancelled = true
+        reject(error)
+      } else if (job.timedOut) {
+        reject(new Error(`Превышено время ожидания (${Math.round(timeoutMs / 60000)} мин)`))
+      } else if (err) reject(err)
+      else resolve({ output })
+      finishWait({ cancelled: Boolean(job.cancelled && err) })
+    }
+    child.stderr.on('data', (chunk) => {
+      stderr = tail(stderr, chunk, 20000)
+    })
+    child.on('error', (err) => settle(err.code === 'ENOENT' ? new Error('ffmpeg не найден в PATH') : err))
+    child.on('close', (code) => {
+      if (code === 0) settle(null)
+      else
+        settle(
+          new Error(stderr.trim().split('\n').slice(-6).join('\n') || `ffmpeg завершился с кодом ${code}`),
+        )
+    })
+  })
+}
+
 let active = null
 
 export function requestCancel() {
