@@ -1,11 +1,12 @@
 import { randomBytes } from 'node:crypto'
-import { existsSync, rmSync } from 'node:fs'
+import { existsSync, readFileSync, rmSync } from 'node:fs'
 import path from 'node:path'
-import { render as ffmpegRender, requestCancel, round3 } from '../ffmpeg.js'
+import { render as ffmpegRender, renderFrame, requestCancel, round3 } from '../ffmpeg.js'
 import { OUTPUT_EXT, checkPath } from '../paths.js'
 import { buildTextTrack } from '../textrender.js'
 import { dataRoot, emit, getProject, previewFile } from './history.js'
-import { OpError, evenSize, findMedia, mustNum, overlayIndex } from './project.js'
+import { OpError, clipLength, evenSize, findMedia, mustNum, overlayIndex, speedOf } from './project.js'
+import { frameWidth } from './tools.js'
 import { trackById } from './tracks.js'
 
 const PRESETS = new Set([
@@ -58,6 +59,7 @@ function planClip(draft, clip, output, free) {
     muted: free ? (clip.muted == null ? true : Boolean(clip.muted)) : Boolean(clip.muted),
     fadeIn: clip.fadeIn,
     fadeOut: clip.fadeOut,
+    speed: speedOf(clip),
     scale: clip.scale,
     x: clip.x,
     y: clip.y,
@@ -73,14 +75,14 @@ function planClips(draft, output) {
   let duration = 0
   const mainPlan = main.clips.map((clip) => {
     const planned = planClip(draft, clip, output, false)
-    duration += clip.out - clip.in
+    duration += clipLength(clip)
     return planned
   })
   for (const track of draft.tracks) {
     if (!overlayIndex(track.id)) continue
     for (const clip of track.clips) {
       if (!(clip.out > clip.in)) continue
-      duration = Math.max(duration, (clip.start ?? 0) + (clip.out - clip.in))
+      duration = Math.max(duration, (clip.start ?? 0) + clipLength(clip))
     }
   }
   duration = round3(duration)
@@ -150,6 +152,56 @@ async function runRender(options, fixed = {}) {
     eta: 0,
   })
   return { output: settings.output, duration: planned.duration }
+}
+
+/** Один кадр проекта на секунде time таймлайна (как в экспорте, с подписями), JPEG в base64. */
+export async function frame(options = {}) {
+  const draft = getProject()
+  const planned = planClips(draft, path.join(dataRoot(), 'frame.jpg'))
+  const time = options.time == null ? 0 : mustNum(options.time, 'time')
+  if (time < 0 || time > planned.duration) {
+    throw new OpError(`time должен быть от 0 до ${planned.duration} с`)
+  }
+  const width = frameWidth(options.width)
+  const height = Math.round(width * (draft.canvas.height / draft.canvas.width))
+  const tmp = path.join(dataRoot(), 'tmp', randomBytes(6).toString('hex'))
+  const output = path.join(tmp, 'frame.jpg')
+  try {
+    const textList = buildTextTrack({
+      dir: tmp,
+      width: draft.canvas.width,
+      height: draft.canvas.height,
+      duration: planned.duration,
+      texts: draft.texts,
+      styles: draft.styles,
+      pixelScale: 1,
+    })
+    await renderFrame(
+      {
+        ...planned,
+        width: draft.canvas.width,
+        height: draft.canvas.height,
+        fps: draft.canvas.fps || 30,
+        textList,
+        loudnorm: false,
+        frame: { time: round3(Math.min(time, Math.max(0, planned.duration - 0.04))), width },
+      },
+      output,
+    )
+    if (!existsSync(output)) throw new OpError('Не удалось получить кадр', 500)
+    return {
+      mimeType: 'image/jpeg',
+      time: round3(time),
+      width,
+      height,
+      data: readFileSync(output).toString('base64'),
+    }
+  } catch (err) {
+    if (err instanceof OpError) throw err
+    throw new OpError(`Не удалось получить кадр: ${err.message}`, 500)
+  } finally {
+    rmSync(tmp, { recursive: true, force: true })
+  }
 }
 
 export function render(options = {}) {

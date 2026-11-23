@@ -211,13 +211,14 @@ export function wordsOnTimeline(words, mainClips, mediaId) {
   const out = []
   let offset = 0
   for (const clip of mainClips) {
-    const length = round3(clip.out - clip.in)
+    const speed = Number(clip.speed) > 0 ? Number(clip.speed) : 1
+    const length = round3((clip.out - clip.in) / speed)
     if (clip.mediaId === mediaId) {
       for (const word of words) {
         const mid = (word.start + word.end) / 2
         if (mid < clip.in || mid >= clip.out) continue
-        const at = round3(offset + Math.max(word.start, clip.in) - clip.in)
-        const to = round3(offset + Math.min(word.end, clip.out) - clip.in)
+        const at = round3(offset + (Math.max(word.start, clip.in) - clip.in) / speed)
+        const to = round3(offset + (Math.min(word.end, clip.out) - clip.in) / speed)
         out.push({ text: word.text, start: at, end: to > at ? to : round3(at + 0.02) })
       }
     }

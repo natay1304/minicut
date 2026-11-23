@@ -10,7 +10,18 @@ export {
   saveProjectAs,
   undo,
 } from './ops/history.js'
-export { addClip, move, remove, removeClips, setClip, setClips, split, splitAt, trim } from './ops/clips.js'
+export {
+  addClip,
+  move,
+  remove,
+  removeClips,
+  scaleSpeed,
+  setClip,
+  setClips,
+  split,
+  splitAt,
+  trim,
+} from './ops/clips.js'
 export { addOverlayTrack, moveClipToTrack, removeOverlayTrack } from './ops/tracks.js'
 export { addText, importSubtitles, importTranscript, removeText, setStyle, setText } from './ops/texts.js'
 export { detectSilence, removeSilence } from './ops/silence.js'
@@ -24,4 +35,5 @@ export {
   subtitlesFromTranscript,
   transcribe,
 } from './ops/speech.js'
-export { cancelRender, preview, render, stopRender } from './ops/render.js'
+export { cancelRender, frame, preview, render, stopRender } from './ops/render.js'
+export { ffmpegHelp, mediaFrame, probeFile } from './ops/tools.js'

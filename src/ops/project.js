@@ -146,6 +146,25 @@ function normalizeMedia(item) {
   return media
 }
 
+export const SPEED_MIN = 0.25
+export const SPEED_MAX = 4
+
+/** Скорость клипа: 1 — как в исходнике, 2 — вдвое быстрее. */
+export function speedOf(clip) {
+  const speed = Number(clip?.speed)
+  return Number.isFinite(speed) && speed > 0 ? speed : 1
+}
+
+/** Длина клипа на таймлайне в секундах: исходный отрезок делится на скорость. */
+export function clipLength(clip) {
+  return (clip.out - clip.in) / speedOf(clip)
+}
+
+function normalizeSpeed(value) {
+  const speed = numOr(value, 1)
+  return Math.min(SPEED_MAX, Math.max(SPEED_MIN, round3(speed)))
+}
+
 function normalizeClip(clip, kind, mediaById) {
   if (!clip || typeof clip.id !== 'string' || typeof clip.mediaId !== 'string') {
     throw new Error('Повреждён клип')
@@ -166,6 +185,8 @@ function normalizeClip(clip, kind, mediaById) {
     fadeIn: clip.fadeIn == null ? 0 : numOr(clip.fadeIn, 0),
     fadeOut: clip.fadeOut == null ? 0 : numOr(clip.fadeOut, 0),
   }
+  const speed = clip.speed == null ? 1 : normalizeSpeed(clip.speed)
+  if (speed !== 1) next.speed = speed
   if (kind === 'free') next.start = round3(clip.start == null ? 0 : numOr(clip.start, 0))
   return next
 }

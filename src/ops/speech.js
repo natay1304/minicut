@@ -20,7 +20,7 @@ import {
   wordsOnTimeline,
 } from '../speech/words.js'
 import { commit, emit, getProject } from './history.js'
-import { OpError, findMedia, mustNum, nextId } from './project.js'
+import { OpError, findMedia, mustNum, nextId, speedOf } from './project.js'
 import { keepRanges } from './silence.js'
 import { trackById } from './tracks.js'
 
@@ -167,7 +167,9 @@ export function cutSourceRange(mediaId, start, end) {
       const keeps = keepRanges(clip, [{ start: s, end: e }], 0).filter(
         (range) => range.out - range.in >= MIN_PIECE,
       )
-      removed += round3(clip.out - clip.in - keeps.reduce((sum, range) => sum + (range.out - range.in), 0))
+      removed += round3(
+        (clip.out - clip.in - keeps.reduce((sum, range) => sum + (range.out - range.in), 0)) / speedOf(clip),
+      )
       keeps.forEach((range, index) => {
         next.push({ ...clip, id: index === 0 ? clip.id : `c${++max}`, in: range.in, out: range.out })
       })

@@ -181,7 +181,7 @@ mcp.registerTool(
   'set_clip',
   {
     description:
-      'Set scale, position, region, volume, mute, fades, name, or overlay start on one clip. scale 1 covers the canvas, or the region when one is set. x and y are offsets as fractions of that area, 0 is centered. volume is 0..2. region null is the full frame; top half is {x:0,y:0,w:1,h:0.5}, bottom half is {x:0,y:0.5,w:1,h:0.5}.',
+      'Set scale, position, region, speed, volume, mute, fades, name, or overlay start on one clip. speed is 0.25 to 4 (2 = twice as fast); the clip gets shorter or longer on the timeline and later main clips shift. scale 1 covers the canvas, or the region when one is set. x and y are offsets as fractions of that area, 0 is centered. volume is 0..2. region null is the full frame; top half is {x:0,y:0,w:1,h:0.5}, bottom half is {x:0,y:0.5,w:1,h:0.5}.',
     inputSchema: {
       clipId: z.string().describe('Clip id'),
       scale: z
@@ -201,6 +201,10 @@ mcp.registerTool(
       muted: z.boolean().optional().describe('Replace the clip audio with silence'),
       fadeIn: z.number().optional().describe('Fade-in length in seconds'),
       fadeOut: z.number().optional().describe('Fade-out length in seconds'),
+      speed: z
+        .number()
+        .optional()
+        .describe('Playback speed 0.25 to 4: 2 is twice as fast, 0.5 is slow motion. Audio keeps its pitch.'),
       name: z.string().optional().describe('Clip label'),
       start: z.number().optional().describe('Overlay timeline start in seconds'),
     },
@@ -223,11 +227,79 @@ mcp.registerTool(
       muted: z.boolean().optional(),
       fadeIn: z.number().optional(),
       fadeOut: z.number().optional(),
+      speed: z.number().optional().describe('Playback speed 0.25 to 4'),
       name: z.string().optional(),
       start: z.number().optional(),
     },
   },
   async ({ clipIds, ...patch }) => reply(await op('setClips', pack({ clipIds, ...patch }))),
+)
+
+mcp.registerTool(
+  'scale_speed',
+  {
+    description:
+      'Speed up or slow down the whole project by a factor (2 = twice as fast, 0.5 = half speed). Multiplies the speed of every clip and moves overlay starts and captions so everything stays in place relative to the video. Fails if any clip would leave 0.25 to 4.',
+    inputSchema: {
+      factor: z.number().describe('Multiplier, for example 1.25 or 0.5'),
+    },
+  },
+  async ({ factor }) => reply(await op('scaleSpeed', { factor })),
+)
+
+mcp.registerTool(
+  'get_frame',
+  {
+    description:
+      'Look at the result: returns one frame of the current project at a timeline time, rendered exactly like the export (layout, crop, captions), as a small JPEG. Use it to check your edit instead of guessing.',
+    inputSchema: {
+      time: z.number().optional().describe('Timeline seconds, default 0'),
+      width: z.number().optional().describe('Image width in pixels, 120 to 1080, default 540'),
+    },
+  },
+  async (args) => imageReply(await op('frame', pack(args))),
+)
+
+mcp.registerTool(
+  'get_media_frame',
+  {
+    description:
+      'One frame of a source file (a media id from get_project, or an absolute path) at a time in that file, as a small JPEG. Use it to look at footage before cutting.',
+    inputSchema: {
+      mediaId: z.string().optional().describe('Media id from get_project'),
+      path: z.string().optional().describe('Absolute path to a video or image (instead of mediaId)'),
+      time: z.number().optional().describe('Seconds in the source file, default 0'),
+      width: z.number().optional().describe('Image width in pixels, 120 to 1080, default 540'),
+    },
+  },
+  async (args) => imageReply(await op('mediaFrame', pack(args))),
+)
+
+mcp.registerTool(
+  'probe',
+  {
+    description:
+      'ffprobe summary of a media file (a media id or an absolute path to a video, audio or image): format, duration, size and every stream with codec, size, fps, sample rate, channels.',
+    inputSchema: {
+      mediaId: z.string().optional(),
+      path: z.string().optional().describe('Absolute path (instead of mediaId)'),
+    },
+  },
+  async (args) => reply(await op('probe', pack(args))),
+)
+
+mcp.registerTool(
+  'ffmpeg_help',
+  {
+    description:
+      "Ask this machine's ffmpeg what it can do. kind: filters, encoders, decoders, formats, pix_fmts (optionally narrowed with query) or filter (with name: options of one filter). Check here before writing a filter so you do not use one that does not exist.",
+    inputSchema: {
+      kind: z.enum(['filters', 'encoders', 'decoders', 'formats', 'pix_fmts', 'filter']).optional(),
+      query: z.string().optional().describe('Only lines containing this text'),
+      name: z.string().optional().describe('Filter name when kind is filter'),
+    },
+  },
+  async (args) => reply(await op('ffmpegHelp', pack(args))),
 )
 
 mcp.registerTool(
@@ -587,6 +659,16 @@ mcp.registerTool(
   },
   async () => reply(await api('POST', '/api/preview')),
 )
+
+function imageReply(frame, note) {
+  const { data, mimeType, ...info } = frame
+  return {
+    content: [
+      { type: 'image', data, mimeType },
+      { type: 'text', text: JSON.stringify({ ...info, ...note }) },
+    ],
+  }
+}
 
 function reply(data) {
   return { content: [{ type: 'text', text: JSON.stringify(data) }] }
