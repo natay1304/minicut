@@ -22,6 +22,8 @@ const PRESETS = new Set([
   'placebo',
 ])
 
+const VIDEO_CODECS = new Set(['libx264', 'libx265', 'libvpx-vp9', 'prores_ks'])
+
 let rendering = false
 
 function renderOptions(options = {}) {
@@ -42,7 +44,30 @@ function renderOptions(options = {}) {
   if (!/^\d{2,4}k$/.test(audioBitrate)) throw new OpError('Некорректный audioBitrate')
   const loudnorm = options.loudnorm == null ? false : options.loudnorm
   if (typeof loudnorm !== 'boolean') throw new OpError('loudnorm должен быть true или false')
-  return { output, width, height, fps, crf, preset, audioBitrate, loudnorm }
+  const videoCodec = options.videoCodec == null ? 'libx264' : String(options.videoCodec)
+  if (!VIDEO_CODECS.has(videoCodec)) throw new OpError(`videoCodec: ${[...VIDEO_CODECS].join(', ')}`)
+  const ext = path.extname(output).toLowerCase()
+  if (videoCodec === 'libvpx-vp9' && ext !== '.webm') throw new OpError('libvpx-vp9 пишется только в .webm')
+  if (ext === '.webm' && videoCodec !== 'libvpx-vp9')
+    throw new OpError('Для .webm нужен videoCodec libvpx-vp9')
+  if (videoCodec === 'prores_ks' && ext !== '.mov') throw new OpError('prores_ks пишется только в .mov')
+  let videoBitrate = null
+  if (options.videoBitrate != null) {
+    videoBitrate = String(options.videoBitrate)
+    if (!/^\d{2,5}k$/.test(videoBitrate)) throw new OpError('videoBitrate вида 8000k')
+  }
+  return {
+    output,
+    width,
+    height,
+    fps,
+    crf,
+    preset,
+    audioBitrate,
+    loudnorm,
+    videoCodec,
+    videoBitrate,
+  }
 }
 
 function planClip(draft, clip, output, free) {
@@ -60,6 +85,8 @@ function planClip(draft, clip, output, free) {
     fadeIn: clip.fadeIn,
     fadeOut: clip.fadeOut,
     speed: speedOf(clip),
+    vfilters: clip.vfilters || null,
+    afilters: clip.afilters || null,
     scale: clip.scale,
     x: clip.x,
     y: clip.y,

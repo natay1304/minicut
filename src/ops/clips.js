@@ -1,4 +1,5 @@
 import { round3 } from '../ffmpeg.js'
+import { checkClipFilters } from './ffmpeg-run.js'
 import { commit, getProject } from './history.js'
 import {
   OpError,
@@ -50,6 +51,8 @@ function clipPatch(patch, track) {
     }
     clean.speed = round3(speed)
   }
+  if (patch.vfilters !== undefined) clean.vfilters = checkClipFilters(patch.vfilters, 'vfilters')
+  if (patch.afilters !== undefined) clean.afilters = checkClipFilters(patch.afilters, 'afilters')
   if (patch.region !== undefined) clean.region = requireRegion(patch.region)
   if (patch.volume !== undefined) {
     const volume = mustNum(patch.volume, 'volume')
@@ -222,10 +225,16 @@ export function move(clipId, newIndex, track = 'main') {
   })
 }
 
+function dropEmpty(clip) {
+  if (clip.vfilters == null) delete clip.vfilters
+  if (clip.afilters == null) delete clip.afilters
+}
+
 export function setClip(clipId, patch) {
   return commit((draft) => {
     const found = findClipAnywhere(draft, clipId)
     Object.assign(found.clip, clipPatch(patch, found.track))
+    dropEmpty(found.clip)
     return found.clip
   })
 }
@@ -238,7 +247,10 @@ export function setClips(clipIds, patch) {
     if (clean.start !== undefined && found.some((item) => item.track.kind !== 'free')) {
       throw new OpError('start задаётся только для оверлей-дорожки')
     }
-    for (const item of found) Object.assign(item.clip, clean)
+    for (const item of found) {
+      Object.assign(item.clip, clean)
+      dropEmpty(item.clip)
+    }
     return found.map((item) => item.clip)
   })
 }

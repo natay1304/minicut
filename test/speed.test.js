@@ -72,3 +72,62 @@ test('экспорт: длительность и звук учитывают с
   )
   assert.ok(Math.abs(Number(info.format.duration) - 2) < 0.15, `duration ${info.format.duration}`)
 })
+
+test('фильтры клипа: проверка и попадание в команду экспорта', { skip }, async () => {
+  const file = makeVideo(dir, 'd.mp4', 2)
+  await ops.newProject('clip-filters')
+  const media = await ops.importMedia(file)
+  const clip = ops.addClip(media.id, 0, 2)
+  assert.throws(() => ops.setClip(clip.id, { vfilters: 'reverse' }), /недоступен/)
+  assert.throws(() => ops.setClip(clip.id, { vfilters: 'movie=/etc/passwd' }), /запрещён/)
+  assert.throws(() => ops.setClip(clip.id, { vfilters: 'eq=contrast=1.2;hue=s=0' }), /одна цепочка/)
+  ops.setClip(clip.id, { vfilters: 'eq=saturation=0', afilters: 'volume=0.5' })
+  assert.equal(ops.getProject().tracks[0].clips[0].vfilters, 'eq=saturation=0')
+  const out = path.join(dir, 'filtered.mp4')
+  await ops.render({ output: out, width: 160, height: 284, fps: 30, crf: 30, preset: 'ultrafast' })
+  const pix = execFileSync(
+    'ffmpeg',
+    [
+      '-v',
+      'error',
+      '-i',
+      out,
+      '-frames:v',
+      '1',
+      '-vf',
+      'format=rgb24,crop=2:2:80:140',
+      '-f',
+      'rawvideo',
+      '-',
+    ],
+    { encoding: 'buffer' },
+  )
+  assert.ok(Math.abs(pix[0] - pix[1]) < 6 && Math.abs(pix[1] - pix[2]) < 6, 'кадр должен быть серым')
+  ops.setClip(clip.id, { vfilters: null })
+  assert.equal(ops.getProject().tracks[0].clips[0].vfilters, undefined)
+})
+
+test('экспорт: кодеки и несовместимые сочетания', { skip }, async () => {
+  const file = makeVideo(dir, 'e.mp4', 1)
+  await ops.newProject('codecs')
+  const media = await ops.importMedia(file)
+  ops.addClip(media.id, 0, 1)
+  const small = { width: 160, height: 284, fps: 30, crf: 35, preset: 'ultrafast' }
+  await assert.rejects(
+    () => ops.render({ ...small, output: path.join(dir, 'v.mp4'), videoCodec: 'libvpx-vp9' }),
+    /webm/,
+  )
+  await assert.rejects(
+    () => ops.render({ ...small, output: path.join(dir, 'p.mp4'), videoCodec: 'prores_ks' }),
+    /mov/,
+  )
+  for (const [name, codec] of [
+    ['h.mp4', 'libx265'],
+    ['v.webm', 'libvpx-vp9'],
+  ]) {
+    const out = path.join(dir, name)
+    await ops.render({ ...small, output: out, videoCodec: codec })
+    const info = await ops.probeFile({ path: out })
+    assert.equal(info.streams.find((s) => s.type === 'video').codec, codec === 'libx265' ? 'hevc' : 'vp9')
+  }
+})

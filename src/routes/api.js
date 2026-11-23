@@ -16,6 +16,8 @@ const CLIP_PATCH_KEYS = [
   'name',
   'start',
   'speed',
+  'vfilters',
+  'afilters',
 ]
 
 const clients = new Set()

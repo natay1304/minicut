@@ -47,7 +47,29 @@ Claude получает краткую инструкцию автоматиче
 - экспорт только по просьбе, путь `.mp4` внутри разрешённых папок.
 
 ## 4. Инструменты
-Полный список с соответствием операциям HTTP API: [API.md](API.md). Кратко: `get_project`, `import_media`, `add_clip`, `split`, `trim`, `remove_clip(s)`, `move_clip`, `move_clip_to_track`, `add/remove_overlay_track`, `set_clip(s)`, `detect_silence`, `remove_silence`, `set_canvas`, `add/set/remove_text`, `set_style`, `import_subtitles`, `import_transcript`, `list/new/load/save_project`, `undo`, `redo`, `preview`, `render`, `cancel_render`, расшифровка речи (`speech_status`, `transcribe`, `get_transcript`, `find_in_transcript`, `find_repeats`, `cut_source_range`, `subtitles_from_transcript`); подробнее: [SPEECH.md](SPEECH.md).
+Полный список с соответствием операциям HTTP API: [API.md](API.md). Кратко: `get_project`, `import_media`, `add_clip`, `split`, `trim`, `remove_clip(s)`, `move_clip`, `move_clip_to_track`, `add/remove_overlay_track`, `set_clip(s)`, `scale_speed`, `get_frame`, `get_media_frame`, `probe`, `ffmpeg_help`, `ffmpeg_run`, `detect_silence`, `remove_silence`, `set_canvas`, `add/set/remove_text`, `set_style`, `import_subtitles`, `import_transcript`, `list/new/load/save_project`, `undo`, `redo`, `preview`, `render`, `cancel_render`, расшифровка речи (`speech_status`, `transcribe`, `get_transcript`, `find_in_transcript`, `find_repeats`, `cut_source_range`, `subtitles_from_transcript`); подробнее: [SPEECH.md](SPEECH.md).
+
+### ffmpeg через MCP
+Claude может пользоваться ffmpeg без интерфейса, но только через проверенные инструменты (команду собирает minicut, оболочки нет):
+
+| Инструмент | Что делает |
+| --- | --- |
+| `get_frame` | кадр проекта на нужной секунде таймлайна, как в экспорте (раскладка, кадрирование, подписи), JPEG. Claude проверяет свой монтаж глазами |
+| `get_media_frame` | кадр исходного файла или медиа проекта |
+| `probe` | данные файла: формат, длительность, дорожки, кодеки |
+| `ffmpeg_help` | что умеет ffmpeg на этом компьютере: фильтры, кодеки, форматы, параметры фильтра |
+| `set_clip` с `speed`, `vfilters`, `afilters` | скорость клипа (0,25–4) и цепочки фильтров ffmpeg на клипе: цвет, размытие, шумоподавление, компрессор и т. д. Применяются в экспорте и быстром предпросмотре |
+| `scale_speed` | ускорить или замедлить весь проект в N раз вместе с подписями и оверлеями |
+| `ffmpeg_run` | собрать новый файл: стабилизация, цветокоррекция, музыка, генерация фонов, конвертация, GIF. Результат можно сразу добавить в медиатеку (`importAs`) |
+| `render` с `videoCodec`, `videoBitrate` | H.264 (по умолчанию), H.265, VP9 (.webm), ProRes (.mov) |
+
+Ограничения безопасности `ffmpeg_run` и фильтров клипа:
+- входы и выход только в разрешённых папках (`MINICUT_ROOTS`), без скрытых;
+- существующий файл не перезаписывается без `overwrite: true`, исходники проекта не перезаписываются никогда;
+- нет сети и протоколов `file:`, `http:`, `concat:`; запрещены фильтры, читающие файлы или выполняющие команды (`movie`, `subtitles`, `lut3d`, `sendcmd` и др.) и параметры `textfile`, `fontfile`;
+- на клипе недоступны фильтры, меняющие длительность (`trim`, `fps`, `reverse`, `atempo`…): для скорости есть `speed`;
+- одновременно работает одна задача ffmpeg, её останавливает `cancel_render`, таймаут по умолчанию 20 минут;
+- звук-только результаты пока нельзя положить на таймлайн (в медиатеку добавляются только видео).
 
 ## 5. Если что-то не работает
 | Симптом | Причина и что сделать |

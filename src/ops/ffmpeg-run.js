@@ -244,3 +244,46 @@ export async function ffmpegRun(options = {}) {
   result.duration = result.duration == null ? undefined : round3(result.duration)
   return result
 }
+
+// Фильтры клипа не должны менять длительность или число кадров: длина клипа на таймлайне считается заранее.
+const CLIP_DENIED = new Set([
+  'trim',
+  'atrim',
+  'setpts',
+  'asetpts',
+  'fps',
+  'loop',
+  'aloop',
+  'reverse',
+  'areverse',
+  'tpad',
+  'apad',
+  'concat',
+  'framestep',
+  'select',
+  'aselect',
+  'atempo',
+  'minterpolate',
+  'overlay',
+  'amix',
+  'amerge',
+  'join',
+  'movie',
+])
+
+/** Проверяет цепочку фильтров клипа (video или audio). Пустая строка и null означают «без фильтров». */
+export function checkClipFilters(text, label) {
+  if (text == null || text === '') return null
+  const chain = checkFilterGraph(String(text), label)
+  if (chain.length > 1000) throw new OpError(`${label} слишком длинный (не больше 1000 символов)`)
+  if (/[;[\]]/.test(chain)) throw new OpError(`${label}: только одна цепочка без меток и точек с запятой`)
+  for (const segment of splitTop(chain, [','])) {
+    const name = segment.split('=')[0].split('@')[0].trim().toLowerCase()
+    if (CLIP_DENIED.has(name)) {
+      throw new OpError(
+        `${label}: фильтр ${name} недоступен на клипе (меняет длительность; для скорости есть speed)`,
+      )
+    }
+  }
+  return chain
+}

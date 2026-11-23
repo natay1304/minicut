@@ -185,6 +185,8 @@ function normalizeClip(clip, kind, mediaById) {
     fadeIn: clip.fadeIn == null ? 0 : numOr(clip.fadeIn, 0),
     fadeOut: clip.fadeOut == null ? 0 : numOr(clip.fadeOut, 0),
   }
+  if (typeof clip.vfilters === 'string' && clip.vfilters.trim()) next.vfilters = clip.vfilters.trim()
+  if (typeof clip.afilters === 'string' && clip.afilters.trim()) next.afilters = clip.afilters.trim()
   const speed = clip.speed == null ? 1 : normalizeSpeed(clip.speed)
   if (speed !== 1) next.speed = speed
   if (kind === 'free') next.start = round3(clip.start == null ? 0 : numOr(clip.start, 0))

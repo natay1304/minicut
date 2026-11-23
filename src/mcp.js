@@ -40,7 +40,8 @@ How to work:
 4. Captions: add_text or import_subtitles (.srt/.ass), style them with set_style. Speech: speech_status, then transcribe (local whisper.cpp, set language when known), get_transcript to read it, find_in_transcript / find_repeats to locate phrases and repeated takes, cut_source_range to remove them, subtitles_from_transcript for captions.
 5. Prefer small steps and call get_project to check the result. Every change can be undone with undo.
 6. preview renders a fast low-quality proxy. render writes the final file only when the user asks for it, to an absolute .mp4 path inside the allowed folders.
-7. Never edit files under the project's data folder directly; use the tools.`
+7. Never edit files under the project's data folder directly; use the tools.
+8. Look at your work: get_frame shows the project at a time exactly as exported, get_media_frame and probe inspect source files. Speed: set_clip speed (0.25 to 4) per clip, scale_speed for the whole project. Effects: set_clip vfilters / afilters take an ffmpeg filter chain (check names with ffmpeg_help). ffmpeg_run makes a new file (stabilize, grade, music, generated backgrounds) from allowed folders and can import it with importAs; it never overwrites without overwrite: true and never touches project sources.`
 
 const mcp = new McpServer({ name: 'minicut', version: '0.1.0' }, { instructions: INSTRUCTIONS })
 
@@ -205,6 +206,20 @@ mcp.registerTool(
         .number()
         .optional()
         .describe('Playback speed 0.25 to 4: 2 is twice as fast, 0.5 is slow motion. Audio keeps its pitch.'),
+      vfilters: z
+        .string()
+        .nullable()
+        .optional()
+        .describe(
+          'ffmpeg video filter chain applied to this clip at export and preview, e.g. "eq=contrast=1.1:saturation=1.3,vignette". One chain, no labels. No filters that change duration (trim, fps, reverse…). null clears. Check names with ffmpeg_help',
+        ),
+      afilters: z
+        .string()
+        .nullable()
+        .optional()
+        .describe(
+          'ffmpeg audio filter chain for this clip, e.g. "highpass=f=80,acompressor,loudnorm". null clears',
+        ),
       name: z.string().optional().describe('Clip label'),
       start: z.number().optional().describe('Overlay timeline start in seconds'),
     },
@@ -228,6 +243,8 @@ mcp.registerTool(
       fadeIn: z.number().optional(),
       fadeOut: z.number().optional(),
       speed: z.number().optional().describe('Playback speed 0.25 to 4'),
+      vfilters: z.string().nullable().optional().describe('Video filter chain, null clears'),
+      afilters: z.string().nullable().optional().describe('Audio filter chain, null clears'),
       name: z.string().optional(),
       start: z.number().optional(),
     },
@@ -686,7 +703,7 @@ mcp.registerTool(
   'render',
   {
     description:
-      'Export the timeline to a video file (H.264 + AAC). Defaults: project canvas, crf 18, preset medium, audio 192k.',
+      'Export the timeline to a video file. Default H.264 + AAC in .mp4; videoCodec can be libx265 (.mp4 .mov .mkv), libvpx-vp9 (.webm only, Opus audio) or prores_ks (.mov only). Defaults: project canvas, crf 18, preset medium, audio 192k. Clip filters (vfilters, afilters) and speed are applied.',
     inputSchema: {
       output: z.string().describe('Destination file path'),
       width: z.number().optional().describe('Output width in pixels'),
@@ -695,6 +712,8 @@ mcp.registerTool(
       crf: z.number().optional().describe('x264 CRF, default 18'),
       preset: z.string().optional().describe('x264 preset, default medium'),
       audioBitrate: z.string().optional().describe('AAC bitrate, default 192k'),
+      videoCodec: z.string().optional().describe('libx264 (default), libx265, libvpx-vp9 or prores_ks'),
+      videoBitrate: z.string().optional().describe('Target video bitrate such as 8000k; replaces crf'),
       loudnorm: z.boolean().optional().describe('Apply EBU R128 loudnorm at I=-16'),
     },
   },

@@ -216,6 +216,7 @@ function regionChain(input, clip, width, height, fps, shifted, alpha) {
   const chain = [
     `${input}trim=start=${sec(clip.in)}:end=${sec(clip.out)}`,
     videoPts(clip),
+    ...(clip.vfilters ? [clip.vfilters] : []),
     `scale=${tw}:${th}:force_original_aspect_ratio=increase:force_divisible_by=2:flags=bicubic`,
     'setsar=1',
     `crop=w='${cropW}':h='${cropH}':x='${cropX}':y='${cropY}'`,
@@ -246,6 +247,7 @@ export function videoChain(input, clip, width, height, fps, shifted, alpha = fal
   const chain = [
     `${input}trim=start=${sec(clip.in)}:end=${sec(clip.out)}`,
     videoPts(clip),
+    ...(clip.vfilters ? [clip.vfilters] : []),
     `scale=${tw}:${th}:force_original_aspect_ratio=increase:force_divisible_by=2:flags=bicubic`,
     'setsar=1',
     `crop=w='${cropW}':h='${cropH}':x='${cropX}':y='${cropY}'`,
@@ -310,6 +312,7 @@ function audioChain(inputIndex, clip, dur, delay) {
     'asetpts=PTS-STARTPTS',
     ...tempoChain(speedOf(clip)),
     'asetpts=PTS-STARTPTS',
+    ...(clip.afilters ? [clip.afilters] : []),
     `volume=${sec(clip.volume == null ? 1 : clip.volume)}`,
   ]
   if (fades.fadeIn > 0) parts.push(`afade=t=in:st=0:d=${sec(fades.fadeIn)}`)
@@ -491,6 +494,33 @@ function removeFile(file) {
   }
 }
 
+/** Параметры кодирования видео по выбранному кодеку. */
+export function videoEncodeArgs(plan) {
+  const codec = plan.videoCodec || 'libx264'
+  const rate = plan.videoBitrate ? ['-b:v', plan.videoBitrate] : ['-crf', String(plan.crf)]
+  if (codec === 'libx265') {
+    return ['-c:v', 'libx265', '-preset', plan.preset, ...rate, '-pix_fmt', 'yuv420p', '-tag:v', 'hvc1']
+  }
+  if (codec === 'libvpx-vp9') {
+    return [
+      '-c:v',
+      'libvpx-vp9',
+      ...(plan.videoBitrate ? rate : ['-crf', String(plan.crf), '-b:v', '0']),
+      '-pix_fmt',
+      'yuv420p',
+    ]
+  }
+  if (codec === 'prores_ks') return ['-c:v', 'prores_ks', '-profile:v', '3', '-pix_fmt', 'yuv422p10le']
+  return ['-c:v', 'libx264', '-preset', plan.preset, ...rate, '-pix_fmt', 'yuv420p']
+}
+
+export function audioEncodeArgs(plan) {
+  const codec = plan.videoCodec || 'libx264'
+  if (codec === 'libvpx-vp9') return ['-c:a', 'libopus', '-b:a', plan.audioBitrate]
+  if (codec === 'prores_ks') return ['-c:a', 'pcm_s16le']
+  return ['-c:a', 'aac', '-b:a', plan.audioBitrate]
+}
+
 export function render(plan) {
   if (active) return Promise.reject(new Error('Экспорт уже выполняется'))
   mkdirSync(path.dirname(plan.output), { recursive: true })
@@ -509,18 +539,8 @@ export function render(plan) {
     '[outv]',
     '-map',
     '[outa]',
-    '-c:v',
-    'libx264',
-    '-preset',
-    plan.preset,
-    '-crf',
-    String(plan.crf),
-    '-pix_fmt',
-    'yuv420p',
-    '-c:a',
-    'aac',
-    '-b:a',
-    plan.audioBitrate,
+    ...videoEncodeArgs(plan),
+    ...audioEncodeArgs(plan),
     '-t',
     sec(plan.duration),
     '-movflags',
