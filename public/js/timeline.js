@@ -1,4 +1,5 @@
 import { postOp, setStatus } from './api.js'
+import { clipLength, formatSpeed, speedOf } from './clip-time.js'
 import { hooks } from './hooks.js'
 import {
   clipById,
@@ -42,6 +43,10 @@ export function pointInTimeline(clientX, clientY) {
   return { x: clientX - rect.left, y: clientY - rect.top }
 }
 
+function lengthPx(inn, out, speed, zoom) {
+  return Math.max(0, clipLength({ in: inn, out, speed }) * zoom)
+}
+
 export function buildMainItems() {
   const zoom = state.zoom
   const drag = state.drag
@@ -51,16 +56,17 @@ export function buildMainItems() {
     if (drag?.type === 'move' && drag.id === clip.id) continue
     let inn = clip.in
     let out = clip.out
+    const speed = speedOf(clip)
     let left = x
     const trimming = drag?.type === 'trim' && drag.trackId === 'main' && drag.id === clip.id
     if (trimming) {
       inn = drag.in
       out = drag.out
-      if (drag.edge === 'in') left = x + (drag.in - drag.origIn) * zoom
+      if (drag.edge === 'in') left = x + ((drag.in - drag.origIn) / speed) * zoom
     }
-    const width = Math.max(0, (out - inn) * zoom)
+    const width = lengthPx(inn, out, speed, zoom)
     items.push({ clip, in: inn, out, left, width })
-    if (trimming && drag.edge === 'in') x += (drag.origOut - drag.origIn) * zoom
+    if (trimming && drag.edge === 'in') x += lengthPx(drag.origIn, drag.origOut, speed, zoom)
     else x += width
   }
   return items
@@ -78,12 +84,20 @@ export function buildFreeItems(track) {
     let inn = clip.in
     let out = clip.out
     let start = clip.start || 0
+    const speed = speedOf(clip)
     if (drag && drag.id === clip.id && (drag.type === 'trim' || drag.type === 'overlay-move')) {
       inn = drag.in
       out = drag.out
       start = drag.start
     }
-    return { clip, in: inn, out, start, left: start * zoom, width: Math.max(0, (out - inn) * zoom) }
+    return {
+      clip,
+      in: inn,
+      out,
+      start,
+      left: start * zoom,
+      width: lengthPx(inn, out, speed, zoom),
+    }
   })
   if (draggingHere && !track.clips.some((clip) => clip.id === drag.id)) {
     const clip = clipById(drag.id)?.clip
@@ -94,7 +108,7 @@ export function buildFreeItems(track) {
         out: drag.out,
         start: drag.start,
         left: drag.start * zoom,
-        width: Math.max(0, (drag.out - drag.in) * zoom),
+        width: lengthPx(drag.in, drag.out, speedOf(clip), zoom),
       })
     }
   }
@@ -254,7 +268,9 @@ function clipElement(item) {
   el.style.width = `${Math.max(item.width, 2)}px`
   el.style.background = clipColor(clip.mediaId)
   const label = clip.name || media?.name || clip.id
-  el.title = `${label} · ${round3(item.in).toFixed(3)}–${round3(item.out).toFixed(3)}`
+  const range = `${round3(item.in).toFixed(3)}–${round3(item.out).toFixed(3)}`
+  const fast = speedOf(clip) !== 1
+  el.title = fast ? `${label} · ${range} · ${formatSpeed(clip)}` : `${label} · ${range}`
   const selected = state.selectedIds.has(clip.id)
   if (selected) el.classList.add('is-selected')
   if (clip.id === state.primaryId) el.classList.add('is-primary')
@@ -268,7 +284,13 @@ function clipElement(item) {
   name.textContent = label
   const meta = document.createElement('div')
   meta.className = 'clip-meta'
-  meta.textContent = formatTime(item.out - item.in)
+  meta.textContent = formatTime(clipLength({ in: item.in, out: item.out, speed: clip.speed }))
+  if (speedOf(clip) !== 1) {
+    const badge = document.createElement('span')
+    badge.className = 'clip-speed'
+    badge.textContent = formatSpeed(clip)
+    meta.append(badge)
+  }
   body.append(name, meta)
 
   const trimIn = document.createElement('div')

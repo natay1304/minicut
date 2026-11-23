@@ -1,4 +1,5 @@
 import { postOp, request } from './api.js'
+import { SPEED_MAX, SPEED_MIN, speedOf } from './clip-time.js'
 import { FRAME_BOTTOM, FRAME_TOP } from './crop-math.js'
 import { hooks } from './hooks.js'
 import { paintCanvas } from './preview-canvas.js'
@@ -72,6 +73,8 @@ export function fillClipForm() {
   setPair('prop-x', clip.x ?? 0)
   setPair('prop-y', clip.y ?? 0)
   setPair('prop-volume', clip.volume ?? 1)
+  $('prop-speed').value = String(round3(speedOf(clip)))
+  syncSpeedPresets(speedOf(clip))
   $('prop-fade-in').value = String(clip.fadeIn ?? 0)
   $('prop-fade-out').value = String(clip.fadeOut ?? 0)
   $('prop-mute').checked = Boolean(clip.muted)
@@ -169,6 +172,59 @@ function bindFade(id, key) {
   })
 }
 
+function readSpeed(value) {
+  const speed = Number(value)
+  if (!Number.isFinite(speed)) return null
+  return round3(clamp(speed, SPEED_MIN, SPEED_MAX))
+}
+
+function syncSpeedPresets(speed) {
+  const rounded = round3(speed)
+  for (const button of $('speed-presets').querySelectorAll('button')) {
+    const on = round3(Number(button.dataset.speed)) === rounded
+    button.setAttribute('aria-pressed', on ? 'true' : 'false')
+    button.classList.toggle('is-on', on)
+  }
+}
+
+function commitSpeed(speed) {
+  const ids = [...state.selectedIds].filter((id) => clipById(id))
+  if (!ids.length) return
+  const changed = ids.some((id) => round3(speedOf(clipById(id).clip)) !== speed)
+  if (!changed) return
+  const run =
+    ids.length > 1
+      ? postOp('setClips', { clipIds: ids, speed })
+      : postOp('setClip', { clipId: ids[0], speed })
+  void run.catch(async () => {
+    try {
+      hooks.applyProject(await request('GET', '/api/project'))
+    } catch {
+      /* статус уже есть */
+    }
+  })
+}
+
+function bindSpeed() {
+  const input = $('prop-speed')
+  input.addEventListener('change', () => {
+    const speed = readSpeed(input.value)
+    if (speed == null) return
+    input.value = String(speed)
+    syncSpeedPresets(speed)
+    commitSpeed(speed)
+  })
+  for (const button of $('speed-presets').querySelectorAll('button')) {
+    button.addEventListener('click', () => {
+      const speed = readSpeed(button.dataset.speed)
+      if (speed == null) return
+      input.value = String(speed)
+      syncSpeedPresets(speed)
+      commitSpeed(speed)
+    })
+  }
+}
+
 export function bindInspector() {
   bindClipNumber('prop-scale', 'scale', true)
   bindClipNumber('prop-x', 'x', true)
@@ -176,6 +232,8 @@ export function bindInspector() {
   bindClipNumber('prop-volume', 'volume', true)
   bindFade('prop-fade-in', 'fadeIn')
   bindFade('prop-fade-out', 'fadeOut')
+  bindSpeed()
+  $('clip-form').addEventListener('submit', (event) => event.preventDefault())
   $('prop-region').addEventListener('change', () => {
     const clip = primaryClip()
     if (!clip) return

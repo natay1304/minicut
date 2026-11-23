@@ -1,4 +1,5 @@
 import { postOp, request } from './api.js'
+import { clipLength } from './clip-time.js'
 import {
   FRAME_BOTTOM,
   FRAME_MIN,
@@ -57,7 +58,7 @@ function underPlayhead(clip) {
     return loc?.clip.id === clip.id
   }
   const start = clip.start || 0
-  const dur = clip.out - clip.in
+  const dur = clipLength(clip)
   return state.playhead >= start && state.playhead < start + dur - 0.0001
 }
 

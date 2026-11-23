@@ -1,4 +1,5 @@
 import { postOp } from './api.js'
+import { clipLength, speedOf } from './clip-time.js'
 import { hooks } from './hooks.js'
 import { clipById, displayTracks, mainClips, overlayClips, timelineSpan } from './project-model.js'
 import { rangeSelect, selectOnly, toggleSelect } from './selection.js'
@@ -31,14 +32,14 @@ export function snapEdge(time, ignoreId) {
   let acc = 0
   for (const clip of mainClips()) {
     consider(acc)
-    acc += clip.out - clip.in
+    acc += clipLength(clip)
   }
   consider(acc)
   for (const clip of overlayClips()) {
     if (clip.id === ignoreId) continue
     const start = clip.start || 0
     consider(start)
-    consider(start + (clip.out - clip.in))
+    consider(start + clipLength(clip))
   }
   return best == null ? { time, hit: false } : { time: best, hit: true }
 }
@@ -160,6 +161,7 @@ function armDrag(mode, clip, startX, rect) {
     start: clip.start || 0,
     in: clip.in,
     out: clip.out,
+    speed: speedOf(clip),
     snapTime: null,
   }
 }
@@ -175,7 +177,7 @@ function updateArmedDrag(ev) {
   }
   if (drag.type === 'overlay-move') {
     const delta = (ev.clientX - drag.startX) / state.zoom
-    const dur = drag.origOut - drag.origIn
+    const dur = clipLength({ in: drag.origIn, out: drag.origOut, speed: drag.speed })
     const snapped = snapStart(drag.origStart + delta, dur, drag.id)
     drag.start = round3(Math.max(0, snapped.start))
     drag.snapTime = snapped.hit ? snapped.snapTime : null

@@ -1,4 +1,5 @@
 import { postOp, request } from './api.js'
+import { timelineOffset } from './clip-time.js'
 import { hooks } from './hooks.js'
 import { pausePlayback, revealPlayhead } from './playback.js'
 import { showFrame } from './preview-players.js'
@@ -68,7 +69,7 @@ function timelineAt(mediaId, start) {
     const clip = clips[i]
     if (clip.mediaId !== mediaId) continue
     if (start < clip.in - 0.0005 || start >= clip.out) continue
-    return clipStart(i, clips) + (start - clip.in)
+    return clipStart(i, clips) + timelineOffset(clip, start)
   }
   return null
 }

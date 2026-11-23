@@ -692,3 +692,103 @@ body.is-resizing .app > :not(.splitter) {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Скорость клипа и всего проекта */
+#prop-speed {
+  width: 100%;
+  max-width: 100%;
+}
+
+.speed-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0 0 10px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.speed-presets button {
+  flex: 1 1 3.2rem;
+  min-width: 2.8rem;
+  height: 28px;
+  padding: 0 4px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.speed-presets button.is-on {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.speed-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.speed-form label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+  color: var(--muted);
+}
+
+.speed-form input[type='number'] {
+  width: 4.75rem;
+  max-width: 100%;
+  height: 26px;
+}
+
+.speed-form button {
+  height: auto;
+  min-height: 26px;
+  padding: 4px 8px;
+  white-space: normal;
+  line-height: 1.2;
+}
+
+.speed-form .hint {
+  flex: 1 1 14rem;
+  min-width: 0;
+  margin: 0;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
+}
+
+.clip-speed {
+  margin-left: 0.35em;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+@container panel (max-width: 240px) {
+  .speed-presets button {
+    flex: 1 1 calc(50% - 4px);
+  }
+}
+
+@media (max-width: 375px) {
+  .speed-form,
+  .speed-form label {
+    flex: 1 1 100%;
+  }
+
+  .speed-form button {
+    flex: 1 1 auto;
+  }
+
+  .speed-form .hint {
+    flex-basis: 100%;
+  }
+}

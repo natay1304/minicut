@@ -1,4 +1,5 @@
 import { postOp, request } from './api.js'
+import { speedOf } from './clip-time.js'
 import { hooks } from './hooks.js'
 import { clipById, mediaById } from './project-model.js'
 import { selectOnly } from './selection.js'
@@ -28,6 +29,7 @@ export function startTrim(event, clip, edge) {
     in: clip.in,
     out: clip.out,
     start: clip.start || 0,
+    speed: speedOf(clip),
     mediaDuration: media.duration,
     snapTime: null,
   }
@@ -50,45 +52,57 @@ function updateTrim(ev) {
   const drag = state.drag
   if (!drag || drag.type !== 'trim') return
   const delta = (ev.clientX - drag.startX) / state.zoom
-  const span = Math.max(0.001, round3(drag.origOut - drag.origIn))
-  const minDur = Math.min(MIN_CLIP, span)
+  const speed = speedOf(drag)
+  const rawSpan = drag.origOut - drag.origIn
+  const sourceSpan = Math.max(0.001, round3(rawSpan))
+  const minSource = Math.min(MIN_CLIP, sourceSpan)
   if (drag.trackId === 'main') {
     drag.snapTime = null
     if (drag.edge === 'in') {
-      drag.in = clamp(round3(drag.origIn + delta), 0, round3(drag.origOut - minDur))
+      drag.in = clamp(round3(drag.origIn + delta * speed), 0, round3(drag.origOut - minSource))
       drag.out = drag.origOut
     } else {
-      drag.out = clamp(round3(drag.origOut + delta), round3(drag.origIn + minDur), drag.mediaDuration)
+      drag.out = clamp(
+        round3(drag.origOut + delta * speed),
+        round3(drag.origIn + minSource),
+        drag.mediaDuration,
+      )
       drag.in = drag.origIn
     }
     renderTimeline()
     return
   }
+  const timelineLen = rawSpan / speed
+  const minTimeline = minSource / speed
   if (drag.edge === 'out') {
-    const minRight = drag.origStart + minDur
-    const maxRight = drag.origStart + Math.max(minDur, drag.mediaDuration - drag.origIn)
-    let right = clamp(drag.origStart + (drag.origOut - drag.origIn) + delta, minRight, maxRight)
+    const minRight = drag.origStart + minTimeline
+    const maxRight = drag.origStart + Math.max(minTimeline, (drag.mediaDuration - drag.origIn) / speed)
+    let right = clamp(drag.origStart + timelineLen + delta, minRight, maxRight)
     const snapped = snapEdge(right, drag.id)
     if (snapped.hit) right = clamp(snapped.time, minRight, maxRight)
     drag.out = clamp(
-      round3(drag.origIn + (right - drag.origStart)),
-      round3(drag.origIn + minDur),
+      round3(drag.origIn + (right - drag.origStart) * speed),
+      round3(drag.origIn + minSource),
       drag.mediaDuration,
     )
     drag.in = drag.origIn
     drag.start = drag.origStart
-    const edge = round3(drag.origStart + (drag.out - drag.origIn))
+    const edge = round3(drag.origStart + (drag.out - drag.origIn) / speed)
     drag.snapTime = snapped.hit && Math.abs(edge - snapped.time) < 0.002 ? snapped.time : null
   } else {
-    const right = drag.origStart + (drag.origOut - drag.origIn)
-    const minLeft = Math.max(0, round3(drag.origStart - drag.origIn))
-    const maxLeft = round3(right - minDur)
+    const right = drag.origStart + timelineLen
+    const minLeft = Math.max(0, round3(drag.origStart - drag.origIn / speed))
+    const maxLeft = round3(right - minTimeline)
     let left = clamp(drag.origStart + delta, minLeft, Math.max(minLeft, maxLeft))
     const snapped = snapEdge(left, drag.id)
     if (snapped.hit) left = clamp(snapped.time, minLeft, Math.max(minLeft, maxLeft))
-    drag.in = clamp(round3(drag.origIn + (left - drag.origStart)), 0, round3(drag.origOut - minDur))
+    drag.in = clamp(
+      round3(drag.origIn + (left - drag.origStart) * speed),
+      0,
+      round3(drag.origOut - minSource),
+    )
     drag.out = drag.origOut
-    drag.start = round3(Math.max(0, drag.origStart + (drag.in - drag.origIn)))
+    drag.start = round3(Math.max(0, drag.origStart + (drag.in - drag.origIn) / speed))
     drag.snapTime = snapped.hit && Math.abs(drag.start - snapped.time) < 0.002 ? snapped.time : null
   }
   renderTimeline()
