@@ -1,3 +1,4 @@
+import { placeImage } from './crop-math.js'
 import { hooks } from './hooks.js'
 import {
   canvasInfo,
@@ -26,11 +27,67 @@ import {
   state,
 } from './state.js'
 
+function frameRegion(clip) {
+  const region = clip?.region
+  if (!region || typeof region !== 'object') return null
+  const x = Number(region.x)
+  const y = Number(region.y)
+  const w = Number(region.w)
+  const h = Number(region.h)
+  if (![x, y, w, h].every((n) => Number.isFinite(n)) || !(w > 0) || !(h > 0)) return null
+  return { x, y, w, h }
+}
+
+function clearFrameBox(video) {
+  video.style.left = ''
+  video.style.top = ''
+  video.style.right = ''
+  video.style.bottom = ''
+  video.style.width = ''
+  video.style.height = ''
+  video.style.clipPath = ''
+  video.style.objectFit = ''
+}
+
 export function applyFrame(video, clip) {
   const scale = Number(clip?.scale ?? 1)
   const x = Number(clip?.x ?? 0)
   const y = Number(clip?.y ?? 0)
-  video.style.transform = `translate(${(Number.isFinite(x) ? x : 0) * 100}%, ${(Number.isFinite(y) ? y : 0) * 100}%) scale(${Number.isFinite(scale) && scale > 0 ? scale : 1})`
+  const safeScale = Number.isFinite(scale) && scale > 0 ? scale : 1
+  const safeX = Number.isFinite(x) ? x : 0
+  const safeY = Number.isFinite(y) ? y : 0
+  const media = clip ? mediaById(clip.mediaId) : null
+  const canvas = state.project?.canvas
+  if (!media?.width || !media?.height || !canvas?.width || !canvas?.height) {
+    // Размеры неизвестны: старый способ без точного совпадения с экспортом.
+    clearFrameBox(video)
+    video.style.transform = `translate(${safeX * 100}%, ${safeY * 100}%) scale(${safeScale})`
+    return
+  }
+  // Картинка кладётся так же, как в экспорте (см. placeImage): всё видео, cover по области, затем окно области.
+  const frame = frameRegion(clip) || { x: 0, y: 0, w: 1, h: 1 }
+  const image = placeImage(frame, { x: safeX, y: safeY }, safeScale, {
+    mediaW: media.width,
+    mediaH: media.height,
+    canvasW: canvas.width,
+    canvasH: canvas.height,
+  })
+  const pct = (n) => `${n * 100}%`
+  video.style.left = pct(image.left)
+  video.style.top = pct(image.top)
+  video.style.right = 'auto'
+  video.style.bottom = 'auto'
+  video.style.width = pct(image.width)
+  video.style.height = pct(image.height)
+  video.style.objectFit = 'fill'
+  video.style.transform = 'none'
+  // clip-path в координатах картинки возвращает видимое к области (отрицательный отступ: там поля).
+  const inset = (n, size) => `${(n / size) * 100}%`
+  const top = frame.y - image.top
+  const left = frame.x - image.left
+  const right = image.left + image.width - (frame.x + frame.w)
+  const bottom = image.top + image.height - (frame.y + frame.h)
+  video.style.clipPath = `inset(${inset(top, image.height)} ${inset(right, image.width)} ${inset(bottom, image.height)} ${inset(left, image.width)})`
 }
 
 export function paintCanvas() {
@@ -60,6 +117,7 @@ export function paintCanvas() {
   stageMeta.textContent = parts.join(' · ')
   const hasVisual = mainClips().length > 0 || overlayClips().length > 0 || texts().length > 0
   stageEmpty.hidden = hasVisual
+  hooks.syncCrop?.()
 }
 
 export function paintCaptions() {

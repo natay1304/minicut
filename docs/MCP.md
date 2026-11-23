@@ -37,6 +37,7 @@ npm run mcp:install -- --desktop # допишет конфиг Claude Desktop и
 - «Импортируй `/Users/me/Videos/talk.mp4`, убери паузы и положи на основную дорожку».
 - «Добавь поверх с 3-й секунды `/Users/me/Videos/graphic.webm` на вторую дорожку, масштаб 0.5, в правый верх».
 - «Загрузи субтитры из `/Users/me/Videos/talk.srt`, подпись стиля sub подними выше».
+- «Расшифруй видео, найди повторные дубли, оставь последние и сделай субтитры» (сначала один раз `npm run setup:speech`).
 - «Собери быстрый предпросмотр», а финальный `render` только после твоего «собирай».
 
 Claude получает краткую инструкцию автоматически (поле `instructions` MCP-сервера). Ключевые правила:
@@ -46,7 +47,7 @@ Claude получает краткую инструкцию автоматиче
 - экспорт только по просьбе, путь `.mp4` внутри разрешённых папок.
 
 ## 4. Инструменты
-Полный список с соответствием операциям HTTP API: [API.md](API.md). Кратко: `get_project`, `import_media`, `add_clip`, `split`, `trim`, `remove_clip(s)`, `move_clip`, `move_clip_to_track`, `add/remove_overlay_track`, `set_clip(s)`, `detect_silence`, `remove_silence`, `set_canvas`, `add/set/remove_text`, `set_style`, `import_subtitles`, `import_transcript`, `list/new/load/save_project`, `undo`, `redo`, `preview`, `render`, `cancel_render`.
+Полный список с соответствием операциям HTTP API: [API.md](API.md). Кратко: `get_project`, `import_media`, `add_clip`, `split`, `trim`, `remove_clip(s)`, `move_clip`, `move_clip_to_track`, `add/remove_overlay_track`, `set_clip(s)`, `detect_silence`, `remove_silence`, `set_canvas`, `add/set/remove_text`, `set_style`, `import_subtitles`, `import_transcript`, `list/new/load/save_project`, `undo`, `redo`, `preview`, `render`, `cancel_render`, расшифровка речи (`speech_status`, `transcribe`, `get_transcript`, `find_in_transcript`, `find_repeats`, `cut_source_range`, `subtitles_from_transcript`); подробнее: [SPEECH.md](SPEECH.md).
 
 ## 5. Если что-то не работает
 | Симптом | Причина и что сделать |

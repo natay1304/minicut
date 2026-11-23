@@ -66,6 +66,19 @@ function openExport() {
   $('export-width').value = canvas.width
   $('export-height').value = canvas.height
   $('export-fps').value = canvas.fps
+  if (!$('export-path').value.trim()) {
+    let dir = ''
+    try {
+      dir = localStorage.getItem(DIR_KEY) || ''
+    } catch {
+      /* хранилище недоступно */
+    }
+    const name =
+      String(state.project?.name || 'ролик')
+        .replace(/[\\/:*?"<>|]+/g, '-')
+        .trim() || 'ролик'
+    if (dir) $('export-path').value = `${dir}${dir.endsWith('/') || dir.endsWith('\\') ? '' : '/'}${name}.mp4`
+  }
   if (!$('export-dialog').open) $('export-dialog').showModal()
 }
 
@@ -154,7 +167,101 @@ export async function removeSilence() {
   }
 }
 
+const DIR_KEY = 'minicut-export-dir'
+let suggestions = []
+let activeIndex = -1
+let suggestTimer = 0
+let suggestSeq = 0
+
+function closeSuggest() {
+  $('export-suggest').hidden = true
+  $('export-path').setAttribute('aria-expanded', 'false')
+  suggestions = []
+  activeIndex = -1
+}
+
+function highlight(index) {
+  activeIndex = index
+  const items = $('export-suggest').children
+  for (let i = 0; i < items.length; i++) {
+    items[i].classList.toggle('is-active', i === index)
+    items[i].setAttribute('aria-selected', String(i === index))
+  }
+  if (items[index]) items[index].scrollIntoView({ block: 'nearest' })
+}
+
+function pick(item) {
+  const input = $('export-path')
+  input.value = item.path
+  input.focus()
+  if (item.kind === 'dir') void showSuggest()
+  else closeSuggest()
+}
+
+async function showSuggest() {
+  const seq = ++suggestSeq
+  let items = []
+  try {
+    const data = await request('GET', `/api/complete?path=${encodeURIComponent($('export-path').value)}`)
+    items = data.items || []
+  } catch {
+    items = []
+  }
+  if (seq !== suggestSeq) return
+  suggestions = items
+  const list = $('export-suggest')
+  list.replaceChildren()
+  if (!items.length) return closeSuggest()
+  items.forEach((item, i) => {
+    const li = document.createElement('li')
+    li.setAttribute('role', 'option')
+    li.className = `combo-item is-${item.kind}`
+    li.textContent = item.kind === 'dir' ? `${item.name}/` : item.name
+    li.addEventListener('mousedown', (event) => {
+      event.preventDefault()
+      pick(item)
+    })
+    li.addEventListener('mousemove', () => highlight(i))
+    list.append(li)
+  })
+  list.hidden = false
+  $('export-path').setAttribute('aria-expanded', 'true')
+  highlight(-1)
+}
+
+function bindExportPath() {
+  const input = $('export-path')
+  input.addEventListener('input', () => {
+    clearTimeout(suggestTimer)
+    suggestTimer = setTimeout(() => void showSuggest(), 120)
+  })
+  input.addEventListener('focus', () => void showSuggest())
+  input.addEventListener('blur', closeSuggest)
+  input.addEventListener('keydown', (event) => {
+    const open = !$('export-suggest').hidden && suggestions.length
+    if (event.key === 'ArrowDown' && open) {
+      event.preventDefault()
+      highlight((activeIndex + 1) % suggestions.length)
+    } else if (event.key === 'ArrowUp' && open) {
+      event.preventDefault()
+      highlight((activeIndex - 1 + suggestions.length) % suggestions.length)
+    } else if (
+      (event.key === 'Tab' || event.key === 'Enter') &&
+      open &&
+      (activeIndex >= 0 || event.key === 'Tab')
+    ) {
+      event.preventDefault()
+      pick(suggestions[Math.max(activeIndex, 0)])
+    } else if (event.key === 'Escape' && open) {
+      event.preventDefault()
+      event.stopPropagation()
+      closeSuggest()
+    }
+  })
+}
+
 export function bindExport() {
+  bindExportPath()
   $('silence-form').addEventListener('submit', (event) => {
     event.preventDefault()
     void removeSilence()
@@ -172,6 +279,11 @@ export function bindExport() {
     if (!output) {
       setStatus('Укажите путь для экспорта', true)
       return
+    }
+    try {
+      localStorage.setItem(DIR_KEY, output.replace(/[\\/][^\\/]*$/, ''))
+    } catch {
+      /* папка просто не запомнится */
     }
     const width = Number($('export-width').value)
     const height = Number($('export-height').value)

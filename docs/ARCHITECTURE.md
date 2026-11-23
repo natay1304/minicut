@@ -24,6 +24,10 @@ Claude (MCP)       ──stdio────►  src/mcp.js ──HTTP──┘   
 | `ops/texts.js` | подписи, стили, импорт `.srt`/`.ass`, транскрипт |
 | `ops/silence.js` | поиск и вырезание пауз |
 | `ops/render.js` | план рендера, экспорт, предпросмотр, отмена |
+| `ops/speech.js` | расшифровка, поиск, дубли, вырезание по тексту, подписи из расшифровки |
+| `speech/engine.js` | поиск whisper.cpp и модели, запуск, прогресс (macOS, Windows, Linux) |
+| `speech/words.js` | чистые функции: разбор результата, фразы, поиск, дубли, перенос слов на таймлайн |
+| `speech/setup.js` | установка whisper.cpp и модели (`npm run setup:speech`) |
 | `ffmpeg.js` | `ffprobe`, `silencedetect`, сборка `filter_complex`, запуск ffmpeg |
 | `textrender.js` | текст в PNG через `@napi-rs/canvas` (в ffmpeg нет `drawtext`) |
 | `mcp.js` | MCP-сервер (stdio), тонкая обёртка над HTTP API |
@@ -42,6 +46,7 @@ Claude (MCP)       ──stdio────►  src/mcp.js ──HTTP──┘   
 | `selection.js`, `editing.js` | выделение клипов, разрез и удаление |
 | `timeline*.js` | отрисовка таймлайна, перетаскивание, подрезка, перенос, snap |
 | `preview-*.js`, `playback.js` | холст превью, пул видеоэлементов (по одному на дорожку), воспроизведение |
+| `crop-math.js`, `canvas-edit.js` | геометрия кадра и правка области мышью на превью |
 | `inspector.js`, `texts.js`, `library.js`, `projects.js`, `export.js` | панели и диалоги |
 | `shortcuts.js` | горячие клавиши |
 

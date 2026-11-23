@@ -8,6 +8,7 @@ import {
   mainClips,
   mediaById,
   overlayIndex,
+  texts,
   timelineSpan,
   trackLabel,
 } from './project-model.js'
@@ -25,6 +26,7 @@ import {
   trackRows,
   zoomInput,
 } from './state.js'
+import { cueRange } from './timeline-cues.js'
 import { ZOOM_MAX, ZOOM_MIN, clamp, formatRuler, formatTime, round3 } from './util.js'
 
 function contentX(clientX) {
@@ -134,6 +136,8 @@ export function renderTimeline() {
   for (const row of rows) {
     for (const item of row.items) content = Math.max(content, item.left + item.width)
   }
+  const cues = texts()
+  for (const cue of cues) content = Math.max(content, cueRange(cue).end * state.zoom)
   const width = Math.max(timelineScroll.clientWidth || 0, content + 48)
   timelineInner.style.width = `${width}px`
   ruler.style.width = `${width}px`
@@ -171,6 +175,20 @@ export function renderTimeline() {
       })
       label.append(button)
     }
+    gutter.append(label)
+  }
+  if (cues.length) {
+    const el = document.createElement('div')
+    el.className = 'track track-overlay track-cues'
+    el.dataset.track = 'cues'
+    for (const cue of cues) el.append(cueElement(cue))
+    el.addEventListener('pointerdown', (event) => hooks.startBackground(event))
+    trackRows.append(el)
+    const label = document.createElement('div')
+    label.className = 'gutter-track'
+    const name = document.createElement('span')
+    name.textContent = 'Подписи'
+    label.append(name)
     gutter.append(label)
   }
   if (state.drag?.type === 'move') {
@@ -262,6 +280,40 @@ function clipElement(item) {
   trimIn.addEventListener('pointerdown', (event) => hooks.startTrim(event, clip, 'in'))
   trimOut.addEventListener('pointerdown', (event) => hooks.startTrim(event, clip, 'out'))
   el.addEventListener('pointerdown', (event) => hooks.onClipPointerDown(event, clip, el))
+  el.append(trimIn, body, trimOut)
+  return el
+}
+
+function cueElement(cue) {
+  const { start, end } = cueRange(cue)
+  const el = document.createElement('div')
+  el.className = 'clip cue'
+  el.dataset.cue = cue.id
+  el.style.left = `${start * state.zoom}px`
+  el.style.width = `${Math.max((end - start) * state.zoom, 2)}px`
+  const text = cue.text.replace(/\s+/g, ' ')
+  el.title = `${text} · ${round3(start).toFixed(3)}–${round3(end).toFixed(3)}`
+  if (cue.id === state.textId) el.classList.add('is-selected')
+  el.setAttribute('role', 'button')
+  el.setAttribute('aria-pressed', cue.id === state.textId ? 'true' : 'false')
+  const body = document.createElement('div')
+  body.className = 'clip-body'
+  const name = document.createElement('div')
+  name.className = 'clip-name'
+  name.textContent = text
+  const meta = document.createElement('div')
+  meta.className = 'clip-meta'
+  meta.textContent = formatTime(end - start)
+  body.append(name, meta)
+  const trimIn = document.createElement('div')
+  trimIn.className = 'trim trim-in'
+  trimIn.title = 'Начало подписи'
+  const trimOut = document.createElement('div')
+  trimOut.className = 'trim trim-out'
+  trimOut.title = 'Конец подписи'
+  trimIn.addEventListener('pointerdown', (event) => hooks.startCueDrag(event, cue, 'in'))
+  trimOut.addEventListener('pointerdown', (event) => hooks.startCueDrag(event, cue, 'out'))
+  el.addEventListener('pointerdown', (event) => hooks.startCueDrag(event, cue, 'move'))
   el.append(trimIn, body, trimOut)
   return el
 }

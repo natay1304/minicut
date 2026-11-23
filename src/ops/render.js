@@ -62,6 +62,7 @@ function planClip(draft, clip, output, free) {
     x: clip.x,
     y: clip.y,
   }
+  if (clip.region) planned.region = clip.region
   if (free) planned.start = clip.start ?? 0
   return planned
 }

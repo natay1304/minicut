@@ -63,6 +63,8 @@ export const state = {
   hold: false,
   pendingProject: null,
   previewPatch: null,
+  crop: false,
+  cropGesture: false,
   previewStyle: null,
   browseFiles: [],
   signature: '',

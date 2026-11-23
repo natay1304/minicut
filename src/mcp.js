@@ -18,13 +18,26 @@ const track = z
   .optional()
   .describe('Timeline track: main, or overlay, overlay2 … overlay10. Default: main')
 
+const regionField = z
+  .object({
+    x: z.number(),
+    y: z.number(),
+    w: z.number(),
+    h: z.number(),
+  })
+  .nullable()
+  .optional()
+  .describe(
+    'Optional region of the frame, fractions of the canvas from the top-left, or null for the whole frame. Top half: {x:0,y:0,w:1,h:0.5}. Bottom half: {x:0,y:0.5,w:1,h:0.5}. The clip covers this rectangle; scale, x and y then apply inside it (0 is centered in the region).',
+  )
+
 const INSTRUCTIONS = `minicut is a local video editor. You edit a timeline; the user watches the same project live in the browser at ${BASE}.
 
 How to work:
 1. get_project first. Times are seconds. Tracks: main (clips play one after another, deleting a clip shifts the rest) and overlay, overlay2 … overlay10 (free clips placed by "start"; a higher number is drawn on top).
 2. import_media with an absolute path (inside the user's home or temp folder, video files only), then add_clip with in/out inside the source file.
-3. Cut with split / trim / remove_clip, reorder with move_clip, tune a clip with set_clip (scale 1 covers the canvas, x/y are fractions of the canvas, volume 0..2, fadeIn/fadeOut seconds). Overlays are muted by default.
-4. Captions: add_text or import_subtitles (.srt/.ass), style them with set_style.
+3. Cut with split / trim / remove_clip, reorder with move_clip, tune a clip with set_clip (scale 1 covers the canvas or its region; x/y are fractions of that area, 0 is centered; region null is the full frame, top half {x:0,y:0,w:1,h:0.5}, bottom half {x:0,y:0.5,w:1,h:0.5}; volume 0..2, fadeIn/fadeOut seconds). Overlays are muted by default.
+4. Captions: add_text or import_subtitles (.srt/.ass), style them with set_style. Speech: speech_status, then transcribe (local whisper.cpp, set language when known), get_transcript to read it, find_in_transcript / find_repeats to locate phrases and repeated takes, cut_source_range to remove them, subtitles_from_transcript for captions.
 5. Prefer small steps and call get_project to check the result. Every change can be undone with undo.
 6. preview renders a fast low-quality proxy. render writes the final file only when the user asks for it, to an absolute .mp4 path inside the allowed folders.
 7. Never edit files under the project's data folder directly; use the tools.`
@@ -168,12 +181,22 @@ mcp.registerTool(
   'set_clip',
   {
     description:
-      'Set scale, position, volume, mute, fades, name, or overlay start on one clip. scale 1 covers the canvas. x and y are offsets as fractions of the canvas, 0 is centered. volume is 0..2.',
+      'Set scale, position, region, volume, mute, fades, name, or overlay start on one clip. scale 1 covers the canvas, or the region when one is set. x and y are offsets as fractions of that area, 0 is centered. volume is 0..2. region null is the full frame; top half is {x:0,y:0,w:1,h:0.5}, bottom half is {x:0,y:0.5,w:1,h:0.5}.',
     inputSchema: {
       clipId: z.string().describe('Clip id'),
-      scale: z.number().optional().describe('Zoom multiplier on top of canvas cover, 1 = cover'),
-      x: z.number().optional().describe('Horizontal offset as a fraction of canvas width'),
-      y: z.number().optional().describe('Vertical offset as a fraction of canvas height'),
+      scale: z
+        .number()
+        .optional()
+        .describe('Zoom multiplier on top of cover, 1 = cover the frame or the region'),
+      x: z
+        .number()
+        .optional()
+        .describe('Horizontal offset as a fraction of the canvas, or of the region when set'),
+      y: z
+        .number()
+        .optional()
+        .describe('Vertical offset as a fraction of the canvas, or of the region when set'),
+      region: regionField,
       volume: z.number().optional().describe('Linear gain from 0 to 2'),
       muted: z.boolean().optional().describe('Replace the clip audio with silence'),
       fadeIn: z.number().optional().describe('Fade-in length in seconds'),
@@ -188,12 +211,14 @@ mcp.registerTool(
 mcp.registerTool(
   'set_clips',
   {
-    description: 'Apply one patch to several clips (multi-selection).',
+    description:
+      'Apply one patch to several clips (multi-selection). region null is the full frame; top half is {x:0,y:0,w:1,h:0.5}, bottom half is {x:0,y:0.5,w:1,h:0.5}.',
     inputSchema: {
       clipIds: z.array(z.string()).describe('Clip ids to update'),
       scale: z.number().optional(),
       x: z.number().optional(),
       y: z.number().optional(),
+      region: regionField,
       volume: z.number().optional(),
       muted: z.boolean().optional(),
       fadeIn: z.number().optional(),
@@ -353,6 +378,116 @@ mcp.registerTool(
     },
   },
   async ({ mediaId, words }) => reply(await op('importTranscript', { mediaId, words })),
+)
+
+mcp.registerTool(
+  'speech_status',
+  {
+    description:
+      'Check whether speech recognition is installed (whisper.cpp and a model). If not, the answer says what to run: npm run setup:speech.',
+    inputSchema: {},
+  },
+  async () => reply(await op('speechState')),
+)
+
+mcp.registerTool(
+  'transcribe',
+  {
+    description:
+      'Recognize speech in a media file locally (whisper.cpp) and store word timings on the media. Takes from seconds to minutes depending on length. Progress is shown in the editor. Run it once per media, then use get_transcript.',
+    inputSchema: {
+      mediaId: z.string().describe('Media id'),
+      language: z
+        .string()
+        .optional()
+        .describe(
+          'Language code such as ru or en, or auto (default auto). Set it if you know it: this is more accurate',
+        ),
+      prompt: z.string().optional().describe('Optional hint with names and terms that appear in the speech'),
+    },
+  },
+  async ({ mediaId, language, prompt }) => reply(await op('transcribe', pack({ mediaId, language, prompt }))),
+)
+
+mcp.registerTool(
+  'cancel_transcribe',
+  { description: 'Stop a running transcription.', inputSchema: {} },
+  async () => reply(await op('cancelTranscribe')),
+)
+
+mcp.registerTool(
+  'get_transcript',
+  {
+    description:
+      'Return the transcript of a media as short phrases with source times (compact). Use from/to (source seconds) to read a part. Set words=true only when you need exact word times.',
+    inputSchema: {
+      mediaId: z.string().describe('Media id'),
+      from: z.number().optional().describe('Start of the range, source seconds'),
+      to: z.number().optional().describe('End of the range, source seconds'),
+      words: z.boolean().optional().describe('Return every word with its time instead of phrases'),
+    },
+  },
+  async ({ mediaId, from, to, words }) =>
+    reply(await op('getTranscript', pack({ mediaId, from, to, words }))),
+)
+
+mcp.registerTool(
+  'find_in_transcript',
+  {
+    description:
+      'Find a phrase in the transcripts and return where it is said (source start/end seconds). Matches ignore case and punctuation; close wording also matches.',
+    inputSchema: {
+      query: z.string().describe('Phrase to look for'),
+      mediaId: z.string().optional().describe('Limit the search to one media'),
+      limit: z.number().optional().describe('Maximum matches (default 20)'),
+    },
+  },
+  async ({ query, mediaId, limit }) => reply(await op('findInTranscript', pack({ query, mediaId, limit }))),
+)
+
+mcp.registerTool(
+  'find_repeats',
+  {
+    description:
+      'Find repeated takes: phrases said several times in a row and aborted starts. Each group lists the takes and suggests keeping the last one (keep = its index). Cut the others with cut_source_range.',
+    inputSchema: {
+      mediaId: z.string().describe('Media id'),
+      minWords: z.number().optional().describe('Ignore phrases shorter than this many words (default 3)'),
+      minSimilarity: z.number().optional().describe('0..1, how alike two takes must be (default 0.75)'),
+    },
+  },
+  async ({ mediaId, minWords, minSimilarity }) =>
+    reply(await op('findRepeats', pack({ mediaId, minWords, minSimilarity }))),
+)
+
+mcp.registerTool(
+  'cut_source_range',
+  {
+    description:
+      'Remove a source interval of a media from the main track (the rest closes up). Use start and end from find_in_transcript or find_repeats. Undo with undo.',
+    inputSchema: {
+      mediaId: z.string().describe('Media id'),
+      start: z.number().describe('Start, source seconds'),
+      end: z.number().describe('End, source seconds'),
+    },
+  },
+  async ({ mediaId, start, end }) => reply(await op('cutSourceRange', { mediaId, start, end })),
+)
+
+mcp.registerTool(
+  'subtitles_from_transcript',
+  {
+    description:
+      'Create timed captions from the transcript for the clips that are on the main track now (timeline time). Run it after cutting. replace=true removes existing captions first.',
+    inputSchema: {
+      mediaId: z.string().describe('Media id'),
+      maxChars: z.number().optional().describe('Characters per caption (default 36)'),
+      style: z.string().optional().describe('Caption style name (default sub)'),
+      replace: z.boolean().optional().describe('Remove existing captions first'),
+    },
+  },
+  async ({ mediaId, maxChars, style, replace }) =>
+    reply(await op('subtitlesFromTranscript', pack({ mediaId, maxChars, style, replace }))),
 )
 
 mcp.registerTool(

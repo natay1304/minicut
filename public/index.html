@@ -53,6 +53,22 @@
           <span id="timecode" class="timecode">00:00.000</span>
           <span class="timecode dim">/</span>
           <span id="duration" class="timecode dim">00:00.000</span>
+          <button
+            type="button"
+            id="crop-btn"
+            aria-pressed="false"
+            aria-label="Кадрировать"
+            title="Кадрировать: тяните стороны рамки (C)"
+          >
+            Кадрировать
+          </button>
+          <div id="crop-presets" class="crop-presets" hidden>
+            <button type="button" id="crop-full" aria-label="Весь кадр">Весь кадр</button>
+            <button type="button" id="crop-top" aria-label="Верх">Верх</button>
+            <button type="button" id="crop-bottom" aria-label="Низ">Низ</button>
+            <button type="button" id="crop-reset" aria-label="Сброс">Сброс</button>
+          </div>
+          <p id="crop-hint" class="hint crop-hint" hidden></p>
         </div>
         <div class="top-actions">
           <button type="button" id="undo-btn" title="Отменить (⌘Z)">Отменить</button>
@@ -119,6 +135,38 @@
         <div class="canvas-box" id="canvas-box">
           <video id="preview-a" class="preview-video preview-main" playsinline preload="auto"></video>
           <video id="preview-b" class="preview-video preview-main" playsinline preload="auto"></video>
+          <div id="crop-layer" class="crop-layer" hidden>
+            <div id="crop-frame" class="crop-frame">
+              <button
+                type="button"
+                class="crop-handle"
+                data-handle="nw"
+                aria-label="Левый верхний угол"
+              ></button>
+              <button type="button" class="crop-handle" data-handle="n" aria-label="Верхняя сторона"></button>
+              <button
+                type="button"
+                class="crop-handle"
+                data-handle="ne"
+                aria-label="Правый верхний угол"
+              ></button>
+              <button type="button" class="crop-handle" data-handle="e" aria-label="Правая сторона"></button>
+              <button
+                type="button"
+                class="crop-handle"
+                data-handle="se"
+                aria-label="Правый нижний угол"
+              ></button>
+              <button type="button" class="crop-handle" data-handle="s" aria-label="Нижняя сторона"></button>
+              <button
+                type="button"
+                class="crop-handle"
+                data-handle="sw"
+                aria-label="Левый нижний угол"
+              ></button>
+              <button type="button" class="crop-handle" data-handle="w" aria-label="Левая сторона"></button>
+            </div>
+          </div>
           <div id="captions" class="captions"></div>
           <div class="safe-zone" title="Безопасная зона"></div>
           <div id="stage-empty" class="stage-empty">
@@ -157,6 +205,15 @@
                 </span>
               </label>
             </div>
+            <label class="field"
+              >Область кадра
+              <select id="prop-region">
+                <option value="full">Весь кадр</option>
+                <option value="top">Верхняя половина</option>
+                <option value="bottom">Нижняя половина</option>
+                <option value="custom" hidden disabled>Своя</option>
+              </select>
+            </label>
             <label class="field"
               >Громкость
               <span class="pair">
@@ -222,6 +279,56 @@
               </div>
             </form>
             <button type="button" id="text-add">Добавить подпись</button>
+          </div>
+        </section>
+
+        <section class="panel" id="transcript-panel">
+          <div class="panel-head">Расшифровка</div>
+          <div class="panel-body">
+            <div class="stack-form tight">
+              <label for="transcript-media">Медиа</label>
+              <select id="transcript-media"></select>
+              <label for="transcript-lang">Язык</label>
+              <select id="transcript-lang">
+                <option value="auto">Авто</option>
+                <option value="ru">Русский</option>
+                <option value="en">English</option>
+              </select>
+              <div class="row" id="transcript-run-row">
+                <button type="button" id="transcript-run" class="primary" disabled>Расшифровать</button>
+                <button type="button" id="transcript-cancel" hidden>Отмена</button>
+              </div>
+              <div id="transcript-setup" class="transcript-setup" hidden>
+                <p>Распознавание речи не установлено</p>
+                <pre
+                  class="transcript-code"
+                  aria-label="Команда установки"
+                ><code id="transcript-hint"></code></pre>
+                <button type="button" id="transcript-copy">Копировать</button>
+              </div>
+              <div
+                id="transcript-progress"
+                class="transcript-progress"
+                role="progressbar"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                aria-valuenow="0"
+                aria-label="Прогресс расшифровки"
+                hidden
+              >
+                <div id="transcript-progress-bar" class="transcript-progress-bar"></div>
+              </div>
+              <p class="transcript-status-line">
+                <span id="transcript-status" role="status"></span>
+                <span id="transcript-pct"></span>
+              </p>
+              <div class="row">
+                <button type="button" id="transcript-repeats" disabled>Найти дубли</button>
+                <button type="button" id="transcript-subs" disabled>Субтитры из текста</button>
+              </div>
+            </div>
+            <p id="transcript-empty" class="empty-note">Расшифровки пока нет</p>
+            <ul id="transcript-list" class="file-list"></ul>
           </div>
         </section>
 
@@ -312,7 +419,8 @@
             <button type="submit" id="silence-btn">Убрать паузы</button>
           </form>
           <p class="hint">
-            Пробел — пуск · ← → кадр · S — разрезать · Delete — удалить · Shift/⌘ клик и рамка · J K L · ⌘Z
+            Пробел — пуск · ← → кадр · C — кадр · S — разрезать · Delete — удалить · Shift/⌘ клик и рамка · J
+            K L · ⌘Z
           </p>
         </div>
         <div class="timeline-body">
@@ -345,8 +453,8 @@
     <dialog id="export-dialog">
       <form id="export-form">
         <h2>Экспорт</h2>
-        <label class="field" for="export-path"
-          >Файл
+        <div class="field combo">
+          <label for="export-path">Файл</label>
           <input
             id="export-path"
             class="mono"
@@ -354,8 +462,13 @@
             placeholder="/путь/к/ролику.mp4"
             autocomplete="off"
             spellcheck="false"
+            role="combobox"
+            aria-expanded="false"
+            aria-controls="export-suggest"
+            aria-autocomplete="list"
           />
-        </label>
+          <ul id="export-suggest" class="combo-list" role="listbox" hidden></ul>
+        </div>
         <div class="grid-2">
           <label class="field" for="export-width"
             >Ширина

@@ -76,6 +76,7 @@ function clipCore(clip) {
     scale: clip.scale,
     x: clip.x,
     y: clip.y,
+    region: clip.region ?? null,
     volume: clip.volume,
     muted: clip.muted,
     fadeIn: clip.fadeIn,

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.0
+
+- Crop and shift a clip with the mouse on the preview: drag the frame, pan inside it, scroll to zoom
+- Clip `region`: cover part of the frame instead of the whole canvas (full frame, top half, bottom half, or custom `{x,y,w,h}`), so two videos can split the screen
+- Local speech recognition with whisper.cpp: `transcribe`, `get_transcript`, `find_in_transcript`, `find_repeats`, `cut_source_range`, `subtitles_from_transcript`, a transcript panel in the editor, and `npm run setup:speech` for macOS, Windows and Linux
+- The API and events send `wordCount` instead of every word
+- Subtitles get their own lane on the timeline: drag a caption to move it, drag its edges to change start and end (snaps to clip edges and the playhead)
+- Export path field suggests folders and finished videos in a dropdown while you type, and remembers the last folder
+- The preview now places the picture exactly like the export (no black bands that the export does not have)
+- Panels can be resized with the mouse (library width, properties width, timeline height); sizes are remembered, double-click resets
+
 ## 0.1.0
 
 First public release.

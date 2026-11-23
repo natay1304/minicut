@@ -172,8 +172,61 @@ function esc(expr) {
   return expr.replaceAll(',', '\\,')
 }
 
-// scale 1 = cover холста; дальше множитель зума, x/y — сдвиг в долях холста от центра.
-function videoChain(input, clip, width, height, fps, shifted, alpha = false) {
+function evenPx(value) {
+  const n = Math.round(Number(value))
+  if (!Number.isFinite(n) || n <= 0) return 0
+  return n - (n % 2)
+}
+
+// Прямоугольник области в чётных пикселях холста. Не вылезает за кадр.
+function regionRect(region, width, height) {
+  let w = evenPx(region.w * width)
+  let h = evenPx(region.h * height)
+  let x = evenPx(region.x * width)
+  let y = evenPx(region.y * height)
+  if (w < 2) w = 2
+  if (h < 2) h = 2
+  if (w > width) w = width
+  if (h > height) h = height
+  if (x > width - w) x = width - w
+  if (y > height - h) y = height - h
+  return { x, y, w, h }
+}
+
+// cover области, затем scale/x/y внутри неё. Снаружи области — чёрные или прозрачные поля.
+function regionChain(input, clip, width, height, fps, shifted, alpha) {
+  const rect = regionRect(clip.region, width, height)
+  const scale = clip.scale > 0 ? clip.scale : 1
+  const tw = evenDim(rect.w * scale)
+  const th = evenDim(rect.h * scale)
+  const dx = px((clip.x || 0) * rect.w)
+  const dy = px((clip.y || 0) * rect.h)
+  const cropW = esc(`min(iw,${rect.w})`)
+  const cropH = esc(`min(ih,${rect.h})`)
+  const cropX = esc(`if(lte(iw,${rect.w}),0,trunc(max(0,min(iw-${rect.w},(iw-${rect.w})/2-(${dx})))/2)*2)`)
+  const cropY = esc(`if(lte(ih,${rect.h}),0,trunc(max(0,min(ih-${rect.h},(ih-${rect.h})/2-(${dy})))/2)*2)`)
+  const padX = esc(`trunc(max(0,min(${rect.w}-iw,(${rect.w}-iw)/2+(${dx})))/2)*2`)
+  const padY = esc(`trunc(max(0,min(${rect.h}-ih,(${rect.h}-ih)/2+(${dy})))/2)*2`)
+  const fill = alpha ? 'black@0' : 'black'
+  const chain = [
+    `${input}trim=start=${sec(clip.in)}:end=${sec(clip.out)}`,
+    'setpts=PTS-STARTPTS',
+    `scale=${tw}:${th}:force_original_aspect_ratio=increase:force_divisible_by=2:flags=bicubic`,
+    'setsar=1',
+    `crop=w='${cropW}':h='${cropH}':x='${cropX}':y='${cropY}'`,
+  ]
+  if (alpha) chain.push('format=rgba')
+  chain.push(`pad=${rect.w}:${rect.h}:${padX}:${padY}:${fill}`)
+  chain.push(`pad=${width}:${height}:${rect.x}:${rect.y}:${fill}`)
+  chain.push(`fps=${fpsArg(fps)}`)
+  chain.push(alpha ? 'format=rgba' : 'format=yuv420p')
+  if (shifted) chain.push(`setpts=PTS-STARTPTS+${sec(clip.start || 0)}/TB`)
+  return chain.join(',')
+}
+
+// scale 1 = cover холста (или области, если задан region); x/y — сдвиг от центра.
+export function videoChain(input, clip, width, height, fps, shifted, alpha = false) {
+  if (clip.region) return regionChain(input, clip, width, height, fps, shifted, alpha)
   const scale = clip.scale > 0 ? clip.scale : 1
   const tw = evenDim(width * scale)
   const th = evenDim(height * scale)

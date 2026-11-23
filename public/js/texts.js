@@ -63,12 +63,13 @@ export function renderTextList() {
   }
 }
 
-function pickText(id) {
+export function pickText(id) {
   state.textId = id
   const text = texts().find((item) => item.id === id)
   renderTextList()
   fillTextForm()
   fillStyleForm()
+  hooks.renderTimeline?.()
   if (!text) return
   if (state.playhead < text.start || state.playhead >= text.end) {
     pausePlayback()

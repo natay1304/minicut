@@ -1,6 +1,6 @@
 {
   "name": "minicut",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "main": "src/server.js",
   "scripts": {
@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "format": "prettier --write src public test scripts *.js",
     "format:check": "prettier --check src public test scripts *.js",
-    "mcp:install": "node scripts/install-mcp.mjs"
+    "mcp:install": "node scripts/install-mcp.mjs",
+    "setup:speech": "node scripts/setup-speech.mjs"
   },
   "keywords": [
     "video-editor",

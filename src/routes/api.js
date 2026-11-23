@@ -1,14 +1,29 @@
 import { existsSync, readdirSync, statSync } from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import * as ops from '../ops.js'
-import { VIDEO_EXT, checkPath } from '../paths.js'
+import { OUTPUT_EXT, VIDEO_EXT, checkPath } from '../paths.js'
 
-const CLIP_PATCH_KEYS = ['scale', 'x', 'y', 'volume', 'muted', 'fadeIn', 'fadeOut', 'name', 'start']
+const CLIP_PATCH_KEYS = ['scale', 'x', 'y', 'region', 'volume', 'muted', 'fadeIn', 'fadeOut', 'name', 'start']
 
 const clients = new Set()
 
-ops.on('project', (project) => broadcast('project', project))
+// Слова расшифровки занимают много места и не нужны в каждом ответе: вместо них отдаём число слов.
+// Сами слова берутся операцией getTranscript.
+export function slimProject(project) {
+  return {
+    ...project,
+    media: project.media.map((item) => {
+      if (!item.words) return item
+      const { words, ...rest } = item
+      return { ...rest, wordCount: words.length }
+    }),
+  }
+}
+
+ops.on('project', (project) => broadcast('project', slimProject(project)))
 ops.on('render-progress', (info) => broadcast('render-progress', info))
+ops.on('transcribe-progress', (info) => broadcast('transcribe-progress', info))
 
 function broadcast(event, data) {
   const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`
@@ -27,7 +42,7 @@ export function closeClients() {
 
 export function mountApi(app) {
   app.get('/api/project', (_req, res) => {
-    res.json(ops.getProject())
+    res.json(slimProject(ops.getProject()))
   })
 
   app.post('/api/import', async (req, res, next) => {
@@ -46,6 +61,14 @@ export function mountApi(app) {
     }
   })
 
+  app.get('/api/complete', (req, res, next) => {
+    try {
+      res.json({ items: completePath(req.query.path) })
+    } catch (err) {
+      next(err)
+    }
+  })
+
   app.get('/api/events', (req, res) => {
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
@@ -54,7 +77,7 @@ export function mountApi(app) {
     })
     res.write('\n')
     clients.add(res)
-    res.write(`event: project\ndata: ${JSON.stringify(ops.getProject())}\n\n`)
+    res.write(`event: project\ndata: ${JSON.stringify(slimProject(ops.getProject()))}\n\n`)
     const timer = setInterval(() => res.write(': ping\n\n'), 15000)
     req.on('close', () => {
       clearInterval(timer)
@@ -66,7 +89,7 @@ export function mountApi(app) {
     try {
       const { op, args } = req.body ?? {}
       const result = await runOp(op, args)
-      res.json({ project: ops.getProject(), result })
+      res.json({ project: slimProject(ops.getProject()), result })
     } catch (err) {
       next(err)
     }
@@ -139,11 +162,27 @@ function runOp(op, args) {
     case 'moveClipToTrack':
       return ops.moveClipToTrack(field(args, 'clipId', 0), field(args, 'track', 1), field(args, 'start', 2))
     case 'getProject':
-      return ops.getProject()
+      return slimProject(ops.getProject())
     case 'undo':
       return ops.undo()
     case 'redo':
       return ops.redo()
+    case 'speechState':
+      return ops.speechState()
+    case 'transcribe':
+      return ops.transcribe(field(args, 'mediaId', 0), objectArgs(args))
+    case 'cancelTranscribe':
+      return ops.cancelTranscribe()
+    case 'getTranscript':
+      return ops.getTranscript(field(args, 'mediaId', 0), objectArgs(args))
+    case 'findInTranscript':
+      return ops.findInTranscript(field(args, 'query', 0), objectArgs(args))
+    case 'findRepeats':
+      return ops.findRepeats(field(args, 'mediaId', 0), objectArgs(args))
+    case 'cutSourceRange':
+      return ops.cutSourceRange(field(args, 'mediaId', 0), field(args, 'start', 1), field(args, 'end', 2))
+    case 'subtitlesFromTranscript':
+      return ops.subtitlesFromTranscript(field(args, 'mediaId', 0), objectArgs(args))
     case 'detectSilence':
       return ops.detectSilence(field(args, 'mediaId', 0), silenceOpts(args))
     case 'removeSilence':
@@ -265,4 +304,35 @@ function listVideos(dir) {
     .map((entry) => ({ name: entry.name, path: path.join(abs, entry.name) }))
     .sort((a, b) => a.name.localeCompare(b.name))
   return { dir: abs, files }
+}
+
+/**
+ * Подсказки для поля пути экспорта: подпапки и готовые видеофайлы, которые начинаются с введённого.
+ * Пустой ввод даёт домашние папки. Вне разрешённых папок и скрытое не показываем.
+ */
+export function completePath(input) {
+  const typed = typeof input === 'string' ? input : ''
+  const home = os.homedir()
+  let text = typed.startsWith('~') ? home + typed.slice(1) : typed
+  if (!text.trim()) text = `${home}${path.sep}`
+  const endsWithSep = /[\\/]$/.test(text)
+  const dir = endsWithSep ? text : path.dirname(text)
+  const prefix = endsWithSep ? '' : path.basename(text).toLowerCase()
+  let abs
+  try {
+    abs = checkPath(dir, { label: 'Папка' })
+    if (!existsSync(abs) || !statSync(abs).isDirectory()) return []
+  } catch {
+    return []
+  }
+  const items = []
+  for (const entry of readdirSync(abs, { withFileTypes: true })) {
+    if (entry.name.startsWith('.') || !entry.name.toLowerCase().startsWith(prefix)) continue
+    const full = path.join(abs, entry.name)
+    if (entry.isDirectory()) items.push({ name: entry.name, path: full + path.sep, kind: 'dir' })
+    else if (entry.isFile() && OUTPUT_EXT.has(path.extname(entry.name).toLowerCase()))
+      items.push({ name: entry.name, path: full, kind: 'file' })
+  }
+  items.sort((a, b) => (a.kind === b.kind ? a.name.localeCompare(b.name) : a.kind === 'dir' ? -1 : 1))
+  return items.slice(0, 12)
 }

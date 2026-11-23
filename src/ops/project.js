@@ -57,6 +57,53 @@ function numOr(value, fallback) {
   return Number.isFinite(n) ? n : fallback
 }
 
+const REGION_EPS = 0.001
+
+function regionProblem(x, y, w, h) {
+  if (w < 0.05 || h < 0.05) return 'Ширина и высота области не меньше 0.05'
+  if (x < 0 || y < 0 || w > 1 + REGION_EPS || h > 1 + REGION_EPS) {
+    return 'Область задаётся в долях кадра от 0 до 1'
+  }
+  if (x + w > 1 + REGION_EPS || y + h > 1 + REGION_EPS) return 'Область выходит за кадр'
+  return ''
+}
+
+function regionBox(value) {
+  return {
+    x: round3(value.x),
+    y: round3(value.y),
+    w: round3(value.w),
+    h: round3(value.h),
+  }
+}
+
+// null — весь холст. Битые значения при чтении проекта отбрасываются, чтобы файл открывался.
+export function normalizeRegion(value) {
+  if (value == null) return null
+  if (typeof value !== 'object' || Array.isArray(value)) return null
+  const x = Number(value.x)
+  const y = Number(value.y)
+  const w = Number(value.w)
+  const h = Number(value.h)
+  if (![x, y, w, h].every((n) => Number.isFinite(n))) return null
+  if (regionProblem(x, y, w, h)) return null
+  return regionBox({ x, y, w, h })
+}
+
+export function requireRegion(value) {
+  if (value === null) return null
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new OpError('region должен быть объектом или null')
+  }
+  const x = mustNum(value.x, 'region.x')
+  const y = mustNum(value.y, 'region.y')
+  const w = mustNum(value.w, 'region.w')
+  const h = mustNum(value.h, 'region.h')
+  const problem = regionProblem(x, y, w, h)
+  if (problem) throw new OpError(problem)
+  return regionBox({ x, y, w, h })
+}
+
 export function normalizeStyle(style) {
   const base = defaultStyle()
   const src = style && typeof style === 'object' ? style : {}
@@ -95,6 +142,7 @@ function normalizeMedia(item) {
     hasAudio: Boolean(item.hasAudio),
   }
   if (Array.isArray(item.words)) media.words = item.words
+  if (typeof item.language === 'string') media.language = item.language
   return media
 }
 
@@ -112,6 +160,7 @@ function normalizeClip(clip, kind, mediaById) {
     scale: clip.scale == null ? 1 : numOr(clip.scale, 1),
     x: clip.x == null ? 0 : numOr(clip.x, 0),
     y: clip.y == null ? 0 : numOr(clip.y, 0),
+    region: normalizeRegion(clip.region),
     volume: clip.volume == null ? 1 : numOr(clip.volume, 1),
     muted: clip.muted == null ? kind === 'free' : Boolean(clip.muted),
     fadeIn: clip.fadeIn == null ? 0 : numOr(clip.fadeIn, 0),

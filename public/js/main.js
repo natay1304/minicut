@@ -1,9 +1,11 @@
 import { request, setApplyProject, setStatus } from './api.js'
+import { bindCrop, syncCropLayer, toggleCrop } from './canvas-edit.js'
 import { bindEditing } from './editing.js'
 import { bindExport, showProgress } from './export.js'
 import { hooks } from './hooks.js'
 import { bindInspector, fillClipForm, renderInspector, setPair } from './inspector.js'
 import { bindLibrary, renderLibrary, renderProjectButton } from './library.js'
+import { bindPanels } from './panels.js'
 import { bindPlayback, pausePlayback, resyncPlayback } from './playback.js'
 import { paintCanvas } from './preview-canvas.js'
 import { clearPlayers, frontVideo, showFrame, syncOverlayPool } from './preview-players.js'
@@ -12,9 +14,11 @@ import { bindProjects } from './projects.js'
 import { pruneSelection, selectOnly } from './selection.js'
 import { bindShortcuts } from './shortcuts.js'
 import { state } from './state.js'
-import { activeStyle, bindTexts } from './texts.js'
+import { activeStyle, bindTexts, pickText } from './texts.js'
+import { bindTranscript, onTranscribeProgress, renderTranscript } from './transcript.js'
 import { onClipPointerDown, startBackground } from './timeline-drag.js'
 import { bindTimeline, renderTimeline } from './timeline.js'
+import { startCueDrag } from './timeline-cues.js'
 import { startTrim } from './timeline-trim.js'
 
 setApplyProject(applyProject)
@@ -27,9 +31,14 @@ hooks.renderInspector = renderInspector
 hooks.pausePlayback = pausePlayback
 hooks.showFrame = showFrame
 hooks.paintCanvas = paintCanvas
+hooks.syncCrop = syncCropLayer
+hooks.toggleCrop = toggleCrop
 hooks.startBackground = startBackground
 hooks.onClipPointerDown = onClipPointerDown
 hooks.startTrim = startTrim
+hooks.startCueDrag = startCueDrag
+hooks.pickText = pickText
+hooks.renderTimeline = renderTimeline
 hooks.activeStyle = activeStyle
 hooks.frontVideo = frontVideo
 
@@ -76,6 +85,7 @@ function renderAll() {
   renderTimeline()
   renderInspector()
   renderProjectButton()
+  renderTranscript()
 }
 
 function connectEvents() {
@@ -95,6 +105,13 @@ function connectEvents() {
       /* битый пакет */
     }
   })
+  source.addEventListener('transcribe-progress', (event) => {
+    try {
+      onTranscribeProgress(JSON.parse(event.data))
+    } catch {
+      /* битый пакет */
+    }
+  })
 }
 
 function bind() {
@@ -104,9 +121,12 @@ function bind() {
   bindTimeline()
   bindInspector()
   bindTexts()
+  bindTranscript()
   bindProjects()
   bindExport()
   bindShortcuts()
+  bindPanels()
+  bindCrop()
 }
 
 export async function init() {

@@ -1,5 +1,6 @@
 import { postOp } from './api.js'
 import { removeSelected, splitAtPlayhead } from './editing.js'
+import { hooks } from './hooks.js'
 import { pausePlayback, shuttle, stepFrame, togglePlay } from './playback.js'
 import { state } from './state.js'
 
@@ -43,6 +44,10 @@ function onKeyDown(event) {
     case 'ArrowRight':
       event.preventDefault()
       stepFrame(1)
+      break
+    case 'KeyC':
+      event.preventDefault()
+      hooks.toggleCrop?.()
       break
     case 'KeyS':
       event.preventDefault()

@@ -14,4 +14,14 @@ export { addClip, move, remove, removeClips, setClip, setClips, split, splitAt, 
 export { addOverlayTrack, moveClipToTrack, removeOverlayTrack } from './ops/tracks.js'
 export { addText, importSubtitles, importTranscript, removeText, setStyle, setText } from './ops/texts.js'
 export { detectSilence, removeSilence } from './ops/silence.js'
+export {
+  cancelTranscribe,
+  cutSourceRange,
+  findInTranscript,
+  findRepeats,
+  getTranscript,
+  speechState,
+  subtitlesFromTranscript,
+  transcribe,
+} from './ops/speech.js'
 export { cancelRender, preview, render, stopRender } from './ops/render.js'

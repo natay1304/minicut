@@ -1,6 +1,6 @@
 import { round3 } from '../ffmpeg.js'
 import { commit, getProject } from './history.js'
-import { OpError, findMedia, mustInt, mustNum, nextClipId } from './project.js'
+import { OpError, findMedia, mustInt, mustNum, nextClipId, requireRegion } from './project.js'
 import { findClip, findClipAnywhere, parseTrack, trackById, trackOf } from './tracks.js'
 
 function bounds(inPoint, outPoint, duration) {
@@ -32,6 +32,7 @@ function clipPatch(patch, track) {
     if (Math.abs(y) > 4) throw new OpError('Смещение y слишком большое')
     clean.y = round3(y)
   }
+  if (patch.region !== undefined) clean.region = requireRegion(patch.region)
   if (patch.volume !== undefined) {
     const volume = mustNum(patch.volume, 'volume')
     if (volume < 0 || volume > 2) throw new OpError('Громкость должна быть от 0 до 2')
@@ -87,6 +88,7 @@ export function addClip(mediaId, inPoint, outPoint, index, track = 'main') {
       scale: 1,
       x: 0,
       y: 0,
+      region: null,
       volume: 1,
       muted: target.kind === 'free',
       fadeIn: 0,

@@ -11,8 +11,12 @@ A small local web video editor for vertical videos (reels, 1080×1920). Cut on a
 ## Features
 - Main track (ripple) plus up to 10 overlay tracks
 - Per-clip scale, position, volume, mute and fades; multi-select, snapping, undo/redo (100 steps)
+- **Crop tool** (button «Кадрировать» on the preview): drag the sides of a clip's frame, pan and zoom the picture inside it; presets for full frame, top half and bottom half
+- **Split screen**: a clip can cover only part of the canvas (`region`), so two videos share one frame; the preview matches the export exactly
 - Text and subtitles with styles, `.srt` and `.ass` import
 - Silence removal, multiple projects
+- Resizable panels (library, properties, timeline): drag the dividers, double-click resets
+- **Local speech recognition** (whisper.cpp): transcript with word timings, find phrases, detect repeated takes, cut by text, captions from the transcript. Nothing leaves your machine (details: [docs/SPEECH.md](docs/SPEECH.md), in Russian)
 - ffmpeg export with progress, cancel and a fast low-quality preview
 - MCP server (stdio): everything the UI does is available to Claude
 - Local only: no accounts, no cloud, nothing leaves your machine
@@ -39,10 +43,10 @@ npm run mcp:install -- --desktop   # add to Claude Desktop / Cowork (backs up yo
 Restart the app, then ask Claude: *"Import `/path/to/talk.mp4`, remove the pauses and put it on the main track."* You watch the result live at http://127.0.0.1:4317. The MCP server starts the editor by itself if it isn't running. Tools, examples and troubleshooting: [docs/MCP.md](docs/MCP.md) (Russian); the full tool table is in [docs/API.md](docs/API.md).
 
 ## Limitations
-- No built-in speech recognition, so no cutting by transcript. Subtitles come from `.srt`/`.ass`, and transcript words can be pushed with `import_transcript`.
+- Speech recognition needs a one-time setup (`npm run setup:speech`, about 570 MB for the default model) and is tested on macOS; the Windows setup is automated but not tested on a real machine.
 - The HTTP API has no authentication. It binds to `127.0.0.1` only; never expose it to a network.
 - Homebrew's ffmpeg has no libass/drawtext, so captions are rendered to a PNG track (fonts ship in `public/fonts`).
-- The UI targets desktop and mouse. There are no automated UI tests.
+- The UI is desktop-only for now (mouse, wide screen). The mobile layout has not been tested. There are no automated UI tests.
 - Most documentation under `docs/` is in Russian for now. Translations are welcome.
 
 ## Configuration (environment variables)
