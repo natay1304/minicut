@@ -1,7 +1,9 @@
 import { setStatus } from './api.js'
+import { clipLength, speedOf } from './clip-time.js'
 import { hooks } from './hooks.js'
 import { mediaUrl, paintCanvas, paintTransport } from './preview-canvas.js'
 import {
+  applyClipRate,
   clearMain,
   frontVideo,
   kickOverlay,
@@ -13,7 +15,9 @@ import {
 } from './preview-players.js'
 import {
   canvasInfo,
+  clipOnTrackAt,
   clipStart,
+  freeTracks,
   locate,
   mainClips,
   mainDuration,
@@ -87,7 +91,7 @@ function startPlayback() {
   const player = videos[playerIndexFor(loc.clip.mediaId, source)]
   if (state.shuttle > 0) {
     unlockAudio(player, loc.clip.mediaId)
-    player.playbackRate = state.shuttle
+    applyClipRate(player, loc.clip)
     kickOverlay(state.playhead)
   } else {
     player.pause()
@@ -145,15 +149,17 @@ function followVideo() {
   const player = frontVideo()
   if (!clip || player.dataset.mediaId !== clip.mediaId) return
   const start = clipStart(state.playIndex)
-  const dur = clip.out - clip.in
-  const slop = Math.min(0.015, dur * 0.25)
+  const dur = Math.max(0, clipLength(clip))
+  const sourceDur = Math.max(0, clip.out - clip.in)
+  const slop = Math.min(0.015, sourceDur * 0.25)
   if (player.currentTime >= clip.out - slop) {
-    const overshoot = Math.max(0, player.currentTime - clip.out)
+    const overshoot = Math.max(0, (player.currentTime - clip.out) / speedOf(clip))
     continueFrom(start + dur + overshoot)
     return
   }
-  const local = player.currentTime - clip.in
-  if (local < -0.08) return
+  const sourceLocal = player.currentTime - clip.in
+  if (sourceLocal < -0.08) return
+  const local = sourceLocal / speedOf(clip)
   state.playhead = start + clamp(local, 0, dur)
   paintPlayhead()
   paintTimecode()
@@ -273,9 +279,12 @@ export function shuttle(dir) {
   if (dir > 0) state.shuttle = prev > 0 ? Math.min(prev * 2, 8) : 1
   else state.shuttle = prev < 0 ? Math.max(prev * 2, -8) : -1
   if (state.playing && prev > 0 && state.shuttle > 0 && frontVideo().dataset.mediaId) {
-    frontVideo().playbackRate = state.shuttle
-    for (const video of overlayVideos.values()) {
-      if (video.classList.contains('is-on') && !video.paused) video.playbackRate = state.shuttle
+    applyClipRate(frontVideo(), mainClips()[state.playIndex])
+    for (const track of freeTracks()) {
+      const video = overlayVideos.get(track.id)
+      if (!video || video.paused || !video.classList.contains('is-on')) continue
+      const over = clipOnTrackAt(track, state.playhead)
+      if (over) applyClipRate(video, over)
     }
     paintTransport()
     return
@@ -310,7 +319,7 @@ export function bindPlayback() {
       const clip = mainClips()[state.playIndex]
       if (!clip || video.dataset.mediaId !== clip.mediaId) return
       if (video.currentTime + 0.08 < clip.out) return
-      continueFrom(clipStart(state.playIndex) + (clip.out - clip.in))
+      continueFrom(clipStart(state.playIndex) + clipLength(clip))
     })
   }
 }

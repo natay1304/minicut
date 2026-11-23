@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.0
+
+- Clip speed (0.25 to 4): field and presets (0.5× to 4×) in the clip panel, ×N badge on the timeline; project-wide speed change (`scale_speed`, form next to «Убрать паузы»); captions and overlays follow
+- Per-clip ffmpeg filter chains (`vfilters`, `afilters`) applied in export and preview
+- Export codecs: H.265, VP9 (.webm), ProRes (.mov) and a target bitrate
+- MCP: `get_frame` and `get_media_frame` (look at the result), `probe`, `ffmpeg_help`, `ffmpeg_run` (build new files with ffmpeg inside the safe folders, with filter and path restrictions)
+
 ## 0.2.0
 
 - Crop and shift a clip with the mouse on the preview: drag the frame, pan inside it, scroll to zoom

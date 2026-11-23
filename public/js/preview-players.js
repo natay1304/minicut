@@ -1,4 +1,5 @@
 import { setStatus } from './api.js'
+import { playbackRateFor } from './clip-time.js'
 import { hooks } from './hooks.js'
 import { applyFrame, mediaUrl, paintCanvas } from './preview-canvas.js'
 import {
@@ -185,6 +186,45 @@ function applyMainAudio(player, clip) {
   applyFrame(player, view)
 }
 
+let rateFallbackNoted = false
+
+function keepPitch(video) {
+  try {
+    video.preservesPitch = true
+  } catch {
+    /* старые браузеры */
+  }
+  try {
+    video.webkitPreservesPitch = true
+  } catch {
+    /* нет префикса */
+  }
+}
+
+function forceRateOne(video) {
+  try {
+    video.playbackRate = 1
+  } catch {
+    /* уже 1 */
+  }
+  if (rateFallbackNoted) return
+  rateFallbackNoted = true
+  setStatus('Браузер не поддерживает эту скорость, воспроизведение оставлено на 1×')
+}
+
+export function applyClipRate(video, clip) {
+  if (!video) return
+  const wanted = playbackRateFor(clip, state.shuttle > 0 ? state.shuttle : 1)
+  keepPitch(video)
+  try {
+    video.playbackRate = wanted
+  } catch {
+    forceRateOne(video)
+    return
+  }
+  if (video.readyState >= 1 && Math.abs(video.playbackRate - wanted) > 0.05) forceRateOne(video)
+}
+
 export async function showSource(loc, { play }) {
   const token = ++state.sourceToken
   state.transitioning = true
@@ -201,7 +241,7 @@ export async function showSource(loc, { play }) {
     const back = videos[1 - state.front]
     if (back !== player) back.pause()
     if (play && state.playing && state.shuttle > 0) {
-      player.playbackRate = state.shuttle
+      applyClipRate(player, loc.clip)
       state.playbackArmed = true
       await player.play()
     } else {
@@ -259,7 +299,7 @@ function syncOneOverlay(track, time, play) {
     if (video.currentTime < clip.out - 0.02 && drift <= 0.15) {
       video.classList.add('is-on')
       if (play && state.playing && state.shuttle > 0) {
-        video.playbackRate = state.shuttle
+        applyClipRate(video, clip)
         if (video.paused) video.play().catch(() => {})
       } else if (!video.paused) video.pause()
       return Promise.resolve()
@@ -299,7 +339,7 @@ function seekOverlay(video, track, clip, source, play) {
     video.muted = Boolean(viewClip(still).muted)
     video.volume = clamp(Number(viewClip(still).volume ?? 1), 0, 1)
     if (play && state.playing && state.shuttle > 0) {
-      video.playbackRate = state.shuttle
+      applyClipRate(video, still)
       return video.play().catch(() => {})
     }
     video.pause()
@@ -320,7 +360,7 @@ export function kickOverlay(time) {
     const view = viewClip(clip)
     video.muted = Boolean(view.muted)
     video.volume = clamp(Number(view.volume ?? 1), 0, 1)
-    video.playbackRate = state.shuttle
+    applyClipRate(video, clip)
     const pending = video.play()
     if (pending) pending.catch(() => {})
   }

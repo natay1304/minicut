@@ -40,9 +40,10 @@ How to work:
 4. Captions: add_text or import_subtitles (.srt/.ass), style them with set_style. Speech: speech_status, then transcribe (local whisper.cpp, set language when known), get_transcript to read it, find_in_transcript / find_repeats to locate phrases and repeated takes, cut_source_range to remove them, subtitles_from_transcript for captions.
 5. Prefer small steps and call get_project to check the result. Every change can be undone with undo.
 6. preview renders a fast low-quality proxy. render writes the final file only when the user asks for it, to an absolute .mp4 path inside the allowed folders.
-7. Never edit files under the project's data folder directly; use the tools.`
+7. Never edit files under the project's data folder directly; use the tools.
+8. Look at your work: get_frame shows the project at a time exactly as exported, get_media_frame and probe inspect source files. Speed: set_clip speed (0.25 to 4) per clip, scale_speed for the whole project. Effects: set_clip vfilters / afilters take an ffmpeg filter chain (check names with ffmpeg_help). ffmpeg_run makes a new file (stabilize, grade, music, generated backgrounds) from allowed folders and can import it with importAs; it never overwrites without overwrite: true and never touches project sources.`
 
-const mcp = new McpServer({ name: 'minicut', version: '0.1.0' }, { instructions: INSTRUCTIONS })
+const mcp = new McpServer({ name: 'minicut', version: '0.3.0' }, { instructions: INSTRUCTIONS })
 
 mcp.registerTool(
   'get_project',
@@ -181,7 +182,7 @@ mcp.registerTool(
   'set_clip',
   {
     description:
-      'Set scale, position, region, volume, mute, fades, name, or overlay start on one clip. scale 1 covers the canvas, or the region when one is set. x and y are offsets as fractions of that area, 0 is centered. volume is 0..2. region null is the full frame; top half is {x:0,y:0,w:1,h:0.5}, bottom half is {x:0,y:0.5,w:1,h:0.5}.',
+      'Set scale, position, region, speed, volume, mute, fades, name, or overlay start on one clip. speed is 0.25 to 4 (2 = twice as fast); the clip gets shorter or longer on the timeline and later main clips shift. scale 1 covers the canvas, or the region when one is set. x and y are offsets as fractions of that area, 0 is centered. volume is 0..2. region null is the full frame; top half is {x:0,y:0,w:1,h:0.5}, bottom half is {x:0,y:0.5,w:1,h:0.5}.',
     inputSchema: {
       clipId: z.string().describe('Clip id'),
       scale: z
@@ -201,6 +202,24 @@ mcp.registerTool(
       muted: z.boolean().optional().describe('Replace the clip audio with silence'),
       fadeIn: z.number().optional().describe('Fade-in length in seconds'),
       fadeOut: z.number().optional().describe('Fade-out length in seconds'),
+      speed: z
+        .number()
+        .optional()
+        .describe('Playback speed 0.25 to 4: 2 is twice as fast, 0.5 is slow motion. Audio keeps its pitch.'),
+      vfilters: z
+        .string()
+        .nullable()
+        .optional()
+        .describe(
+          'ffmpeg video filter chain applied to this clip at export and preview, e.g. "eq=contrast=1.1:saturation=1.3,vignette". One chain, no labels. No filters that change duration (trim, fps, reverse…). null clears. Check names with ffmpeg_help',
+        ),
+      afilters: z
+        .string()
+        .nullable()
+        .optional()
+        .describe(
+          'ffmpeg audio filter chain for this clip, e.g. "highpass=f=80,acompressor,loudnorm". null clears',
+        ),
       name: z.string().optional().describe('Clip label'),
       start: z.number().optional().describe('Overlay timeline start in seconds'),
     },
@@ -223,11 +242,141 @@ mcp.registerTool(
       muted: z.boolean().optional(),
       fadeIn: z.number().optional(),
       fadeOut: z.number().optional(),
+      speed: z.number().optional().describe('Playback speed 0.25 to 4'),
+      vfilters: z.string().nullable().optional().describe('Video filter chain, null clears'),
+      afilters: z.string().nullable().optional().describe('Audio filter chain, null clears'),
       name: z.string().optional(),
       start: z.number().optional(),
     },
   },
   async ({ clipIds, ...patch }) => reply(await op('setClips', pack({ clipIds, ...patch }))),
+)
+
+mcp.registerTool(
+  'scale_speed',
+  {
+    description:
+      'Speed up or slow down the whole project by a factor (2 = twice as fast, 0.5 = half speed). Multiplies the speed of every clip and moves overlay starts and captions so everything stays in place relative to the video. Fails if any clip would leave 0.25 to 4.',
+    inputSchema: {
+      factor: z.number().describe('Multiplier, for example 1.25 or 0.5'),
+    },
+  },
+  async ({ factor }) => reply(await op('scaleSpeed', { factor })),
+)
+
+mcp.registerTool(
+  'get_frame',
+  {
+    description:
+      'Look at the result: returns one frame of the current project at a timeline time, rendered exactly like the export (layout, crop, captions), as a small JPEG. Use it to check your edit instead of guessing.',
+    inputSchema: {
+      time: z.number().optional().describe('Timeline seconds, default 0'),
+      width: z.number().optional().describe('Image width in pixels, 120 to 1080, default 540'),
+    },
+  },
+  async (args) => imageReply(await op('frame', pack(args))),
+)
+
+mcp.registerTool(
+  'get_media_frame',
+  {
+    description:
+      'One frame of a source file (a media id from get_project, or an absolute path) at a time in that file, as a small JPEG. Use it to look at footage before cutting.',
+    inputSchema: {
+      mediaId: z.string().optional().describe('Media id from get_project'),
+      path: z.string().optional().describe('Absolute path to a video or image (instead of mediaId)'),
+      time: z.number().optional().describe('Seconds in the source file, default 0'),
+      width: z.number().optional().describe('Image width in pixels, 120 to 1080, default 540'),
+    },
+  },
+  async (args) => imageReply(await op('mediaFrame', pack(args))),
+)
+
+mcp.registerTool(
+  'probe',
+  {
+    description:
+      'ffprobe summary of a media file (a media id or an absolute path to a video, audio or image): format, duration, size and every stream with codec, size, fps, sample rate, channels.',
+    inputSchema: {
+      mediaId: z.string().optional(),
+      path: z.string().optional().describe('Absolute path (instead of mediaId)'),
+    },
+  },
+  async (args) => reply(await op('probe', pack(args))),
+)
+
+const runInput = z.object({
+  mediaId: z.string().optional().describe('Media id from get_project'),
+  path: z.string().optional().describe('Absolute path to a video, audio or image file'),
+  lavfi: z
+    .string()
+    .optional()
+    .describe(
+      'Generated source instead of a file: color, nullsrc, testsrc, testsrc2, smptebars, gradients, sine or anullsrc, e.g. "color=c=black:s=1080x1920:d=3"',
+    ),
+  ss: z.number().optional().describe('Start offset in the input, seconds'),
+  t: z.number().optional().describe('Read only this many seconds'),
+  loop: z.boolean().optional().describe('Loop a still image'),
+})
+
+mcp.registerTool(
+  'ffmpeg_run',
+  {
+    description:
+      'Run ffmpeg on this machine to make a NEW file: stabilize, denoise, colour-grade, mix music, generate backgrounds, convert, extract audio, make a GIF. You give inputs, a filter graph and an output; the command is built for you. Inputs and the output must be inside the allowed folders; an existing file is never overwritten unless overwrite is true, and project sources never. Filters that read files (movie, subtitles, lut3d…) and any network or file: protocols are refused. Use ffmpeg_help to check a filter exists first. With importAs the video result is added to the media library, ready for add_clip. Only one ffmpeg job runs at a time; cancel_render stops it.',
+    inputSchema: {
+      inputs: z.array(runInput).describe('1 to 8 inputs, numbered 0, 1, … in filter graphs'),
+      filterComplex: z
+        .string()
+        .optional()
+        .describe(
+          'Filter graph, e.g. "[0:v]eq=contrast=1.1:saturation=1.2[v]". Label outputs and pass them in maps',
+        ),
+      vf: z.string().optional().describe('Simple video filter chain (instead of filterComplex)'),
+      af: z.string().optional().describe('Simple audio filter chain (instead of filterComplex)'),
+      maps: z.array(z.string()).optional().describe('Streams to keep: 0:v, 1:a:0 or [label]'),
+      output: z.object({
+        path: z
+          .string()
+          .describe(
+            'Absolute output path (.mp4 .mov .mkv .webm .gif .mp3 .wav .m4a .aac .flac .ogg .opus .png .jpg .webp)',
+          ),
+        videoCodec: z
+          .string()
+          .optional()
+          .describe('libx264, libx265, libvpx-vp9, prores_ks, mjpeg, png, gif or copy'),
+        audioCodec: z.string().optional().describe('aac, libmp3lame, pcm_s16le, flac, libopus or copy'),
+        crf: z.number().optional().describe('Quality 0 to 51, lower is better'),
+        preset: z.string().optional().describe('ultrafast … slower'),
+        pixFmt: z.string().optional().describe('yuv420p, yuv422p, yuv444p, yuva420p, rgba or gray'),
+        fps: z.number().optional(),
+        videoBitrate: z.string().optional().describe('For example 4000k'),
+        audioBitrate: z.string().optional().describe('For example 192k'),
+        duration: z.number().optional().describe('Cut the output to this many seconds'),
+        frames: z.number().optional().describe('Stop after this many video frames'),
+        noVideo: z.boolean().optional(),
+        noAudio: z.boolean().optional(),
+      }),
+      overwrite: z.boolean().optional().describe('Replace an existing output file (never a project source)'),
+      importAs: z.boolean().optional().describe('Add the video result to the media library'),
+      timeoutMinutes: z.number().optional().describe('1 to 120, default 20'),
+    },
+  },
+  async (args) => reply(await op('ffmpegRun', pack(args))),
+)
+
+mcp.registerTool(
+  'ffmpeg_help',
+  {
+    description:
+      "Ask this machine's ffmpeg what it can do. kind: filters, encoders, decoders, formats, pix_fmts (optionally narrowed with query) or filter (with name: options of one filter). Check here before writing a filter so you do not use one that does not exist.",
+    inputSchema: {
+      kind: z.enum(['filters', 'encoders', 'decoders', 'formats', 'pix_fmts', 'filter']).optional(),
+      query: z.string().optional().describe('Only lines containing this text'),
+      name: z.string().optional().describe('Filter name when kind is filter'),
+    },
+  },
+  async (args) => reply(await op('ffmpegHelp', pack(args))),
 )
 
 mcp.registerTool(
@@ -554,7 +703,7 @@ mcp.registerTool(
   'render',
   {
     description:
-      'Export the timeline to a video file (H.264 + AAC). Defaults: project canvas, crf 18, preset medium, audio 192k.',
+      'Export the timeline to a video file. Default H.264 + AAC in .mp4; videoCodec can be libx265 (.mp4 .mov .mkv), libvpx-vp9 (.webm only, Opus audio) or prores_ks (.mov only). Defaults: project canvas, crf 18, preset medium, audio 192k. Clip filters (vfilters, afilters) and speed are applied.',
     inputSchema: {
       output: z.string().describe('Destination file path'),
       width: z.number().optional().describe('Output width in pixels'),
@@ -563,6 +712,8 @@ mcp.registerTool(
       crf: z.number().optional().describe('x264 CRF, default 18'),
       preset: z.string().optional().describe('x264 preset, default medium'),
       audioBitrate: z.string().optional().describe('AAC bitrate, default 192k'),
+      videoCodec: z.string().optional().describe('libx264 (default), libx265, libvpx-vp9 or prores_ks'),
+      videoBitrate: z.string().optional().describe('Target video bitrate such as 8000k; replaces crf'),
       loudnorm: z.boolean().optional().describe('Apply EBU R128 loudnorm at I=-16'),
     },
   },
@@ -587,6 +738,16 @@ mcp.registerTool(
   },
   async () => reply(await api('POST', '/api/preview')),
 )
+
+function imageReply(frame, note) {
+  const { data, mimeType, ...info } = frame
+  return {
+    content: [
+      { type: 'image', data, mimeType },
+      { type: 'text', text: JSON.stringify({ ...info, ...note }) },
+    ],
+  }
+}
 
 function reply(data) {
   return { content: [{ type: 'text', text: JSON.stringify(data) }] }

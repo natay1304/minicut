@@ -1,4 +1,5 @@
 import { postOp, setStatus } from './api.js'
+import { clipLength } from './clip-time.js'
 import { hooks } from './hooks.js'
 import { clipById, freeTracks, mainDuration, overlayClips } from './project-model.js'
 import { selectOnly } from './selection.js'
@@ -8,7 +9,7 @@ import { round3 } from './util.js'
 
 function splitTarget() {
   const t = state.playhead
-  const inside = (clip, start) => t > start + 0.0005 && t < start + (clip.out - clip.in) - 0.0005
+  const inside = (clip, start) => t > start + 0.0005 && t < start + clipLength(clip) - 0.0005
   const hits = []
   for (const track of freeTracks()) {
     for (const clip of track.clips) {
@@ -68,5 +69,14 @@ export function bindEditing() {
   })
   $('clip-delete').addEventListener('click', () => {
     void removeSelected()
+  })
+  $('speed-form').addEventListener('submit', (event) => {
+    event.preventDefault()
+    const factor = Number($('speed-factor').value)
+    if (!Number.isFinite(factor) || !(factor > 0)) {
+      setStatus('Множитель скорости должен быть больше нуля', true)
+      return
+    }
+    void postOp('scaleSpeed', { factor: round3(factor) }).catch(() => {})
   })
 }

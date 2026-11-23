@@ -1,5 +1,17 @@
-import { CLIP_COLORS, clamp } from './util.js'
+import { clipLength, sourceTimeAt, speedOf } from './clip-time.js'
 import { state } from './state.js'
+import { CLIP_COLORS, clamp } from './util.js'
+
+export {
+  SPEED_MAX,
+  SPEED_MIN,
+  clipLength,
+  formatSpeed,
+  playbackRateFor,
+  sourceTimeAt,
+  speedOf,
+  timelineOffset,
+} from './clip-time.js'
 
 export function tracks(project = state.project) {
   return project.tracks || []
@@ -81,14 +93,14 @@ export function clipColor(mediaId) {
 
 export function mainDuration(project = state.project) {
   let sum = 0
-  for (const clip of mainClips(project)) sum += Math.max(0, clip.out - clip.in)
+  for (const clip of mainClips(project)) sum += Math.max(0, clipLength(clip))
   return Math.max(0, sum)
 }
 
 export function timelineSpan(project = state.project) {
   let end = mainDuration(project)
   for (const clip of overlayClips(project)) {
-    end = Math.max(end, (clip.start || 0) + Math.max(0, clip.out - clip.in))
+    end = Math.max(end, (clip.start || 0) + Math.max(0, clipLength(clip)))
   }
   for (const text of texts(project)) end = Math.max(end, Number(text.end) || 0)
   return Math.max(0, end)
@@ -98,7 +110,7 @@ export function clipOnTrackAt(track, time) {
   let hit = null
   for (const clip of track?.clips || []) {
     const start = clip.start || 0
-    const dur = clip.out - clip.in
+    const dur = clipLength(clip)
     if (time >= start && time < start + dur - 0.0001) hit = clip
   }
   return hit
@@ -106,23 +118,23 @@ export function clipOnTrackAt(track, time) {
 
 export function clipStart(index, clips = mainClips()) {
   let acc = 0
-  for (let i = 0; i < index; i++) acc += clips[i].out - clips[i].in
+  for (let i = 0; i < index; i++) acc += clipLength(clips[i])
   return acc
 }
 
 export function locate(time, clips = mainClips()) {
   if (!clips.length) return null
   let acc = 0
-  const total = clips.reduce((sum, clip) => sum + (clip.out - clip.in), 0)
+  const total = clips.reduce((sum, clip) => sum + clipLength(clip), 0)
   const t = clamp(time, 0, total)
   for (let i = 0; i < clips.length; i++) {
     const clip = clips[i]
-    const len = clip.out - clip.in
+    const len = clipLength(clip)
     const end = acc + len
     const last = i === clips.length - 1
     if (t < end || last) {
-      const local = clamp(t - acc, 0, len)
-      return { index: i, clip, start: acc, dur: len, local, sourceTime: clip.in + local }
+      const local = clamp(t - acc, 0, Math.max(0, len))
+      return { index: i, clip, start: acc, dur: len, local, sourceTime: sourceTimeAt(clip, local) }
     }
     acc = end
   }
@@ -147,15 +159,22 @@ export function topClipAt(time) {
 }
 
 export function overlaySourceTime(clip, time) {
-  const dur = Math.max(0.001, clip.out - clip.in)
-  const local = clamp(time - (clip.start || 0), 0, dur - 0.001)
-  return clip.in + local
+  const dur = Math.max(0.001, clipLength(clip))
+  const local = clamp(time - (clip.start || 0), 0, Math.max(0, dur - 0.001))
+  return sourceTimeAt(clip, local)
 }
 
 export function projectSignature(project) {
   const body = (project.tracks || []).map((track) => ({
     id: track.id,
-    clips: track.clips.map((clip) => [clip.id, clip.mediaId, clip.in, clip.out, clip.start ?? null]),
+    clips: track.clips.map((clip) => [
+      clip.id,
+      clip.mediaId,
+      clip.in,
+      clip.out,
+      clip.start ?? null,
+      speedOf(clip),
+    ]),
   }))
   const media = (project.media || []).map((item) => `${item.id}:${item.path}`)
   return JSON.stringify({ body, media })

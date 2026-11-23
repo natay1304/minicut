@@ -4,7 +4,21 @@ import path from 'node:path'
 import * as ops from '../ops.js'
 import { OUTPUT_EXT, VIDEO_EXT, checkPath } from '../paths.js'
 
-const CLIP_PATCH_KEYS = ['scale', 'x', 'y', 'region', 'volume', 'muted', 'fadeIn', 'fadeOut', 'name', 'start']
+const CLIP_PATCH_KEYS = [
+  'scale',
+  'x',
+  'y',
+  'region',
+  'volume',
+  'muted',
+  'fadeIn',
+  'fadeOut',
+  'name',
+  'start',
+  'speed',
+  'vfilters',
+  'afilters',
+]
 
 const clients = new Set()
 
@@ -155,6 +169,18 @@ function runOp(op, args) {
       return ops.setClip(field(args, 'clipId', 0), clipPatch(args))
     case 'setClips':
       return ops.setClips(field(args, 'clipIds', 0) ?? field(args, 'ids', 0), clipPatch(args))
+    case 'ffmpegRun':
+      return ops.ffmpegRun(objectArgs(args))
+    case 'probe':
+      return ops.probeFile(objectArgs(args))
+    case 'frame':
+      return ops.frame(objectArgs(args))
+    case 'mediaFrame':
+      return ops.mediaFrame(objectArgs(args))
+    case 'ffmpegHelp':
+      return ops.ffmpegHelp(objectArgs(args))
+    case 'scaleSpeed':
+      return ops.scaleSpeed(field(args, 'factor', 0))
     case 'addOverlayTrack':
       return ops.addOverlayTrack()
     case 'removeOverlayTrack':

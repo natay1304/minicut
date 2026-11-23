@@ -11,6 +11,11 @@ function tail(prev, chunk, max = 2_000_000) {
   return next.length > max ? next.slice(-max) : next
 }
 
+/** Запускает программу без оболочки и возвращает { stdout, stderr }. */
+export function capture(cmd, args) {
+  return spawnProcess(cmd, args)
+}
+
 function spawnProcess(cmd, args, { onStdout } = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(cmd, args, { stdio: ['ignore', 'pipe', 'pipe'] })
@@ -210,7 +215,8 @@ function regionChain(input, clip, width, height, fps, shifted, alpha) {
   const fill = alpha ? 'black@0' : 'black'
   const chain = [
     `${input}trim=start=${sec(clip.in)}:end=${sec(clip.out)}`,
-    'setpts=PTS-STARTPTS',
+    videoPts(clip),
+    ...(clip.vfilters ? [clip.vfilters] : []),
     `scale=${tw}:${th}:force_original_aspect_ratio=increase:force_divisible_by=2:flags=bicubic`,
     'setsar=1',
     `crop=w='${cropW}':h='${cropH}':x='${cropX}':y='${cropY}'`,
@@ -240,7 +246,8 @@ export function videoChain(input, clip, width, height, fps, shifted, alpha = fal
   const padY = esc(`trunc(max(0,min(${height}-ih,(${height}-ih)/2+(${dy})))/2)*2`)
   const chain = [
     `${input}trim=start=${sec(clip.in)}:end=${sec(clip.out)}`,
-    'setpts=PTS-STARTPTS',
+    videoPts(clip),
+    ...(clip.vfilters ? [clip.vfilters] : []),
     `scale=${tw}:${th}:force_original_aspect_ratio=increase:force_divisible_by=2:flags=bicubic`,
     'setsar=1',
     `crop=w='${cropW}':h='${cropH}':x='${cropX}':y='${cropY}'`,
@@ -251,6 +258,38 @@ export function videoChain(input, clip, width, height, fps, shifted, alpha = fal
   chain.push(alpha ? 'format=yuva420p' : 'format=yuv420p')
   if (shifted) chain.push(`setpts=PTS-STARTPTS+${sec(clip.start || 0)}/TB`)
   return chain.join(',')
+}
+
+function speedOf(clip) {
+  const speed = Number(clip.speed)
+  return Number.isFinite(speed) && speed > 0 ? speed : 1
+}
+
+/** Длина клипа на таймлайне: исходный отрезок с учётом скорости. */
+export function clipDuration(clip) {
+  return (clip.out - clip.in) / speedOf(clip)
+}
+
+function videoPts(clip) {
+  const speed = speedOf(clip)
+  return speed === 1 ? 'setpts=PTS-STARTPTS' : `setpts=(PTS-STARTPTS)/${sec(speed)}`
+}
+
+// atempo принимает 0.5…100 (в старых сборках до 2), поэтому большие и малые значения идут цепочкой.
+export function tempoChain(speed) {
+  if (speed === 1) return []
+  const steps = []
+  let rest = speed
+  while (rest > 2) {
+    steps.push(2)
+    rest /= 2
+  }
+  while (rest < 0.5) {
+    steps.push(0.5)
+    rest /= 0.5
+  }
+  steps.push(rest)
+  return steps.map((step) => `atempo=${sec(step)}`)
 }
 
 function fadesFor(clip, dur) {
@@ -271,6 +310,9 @@ function audioChain(inputIndex, clip, dur, delay) {
   const parts = [
     `[${inputIndex}:a]atrim=start=${sec(clip.in)}:end=${sec(clip.out)}`,
     'asetpts=PTS-STARTPTS',
+    ...tempoChain(speedOf(clip)),
+    'asetpts=PTS-STARTPTS',
+    ...(clip.afilters ? [clip.afilters] : []),
     `volume=${sec(clip.volume == null ? 1 : clip.volume)}`,
   ]
   if (fades.fadeIn > 0) parts.push(`afade=t=in:st=0:d=${sec(fades.fadeIn)}`)
@@ -283,22 +325,26 @@ function audioChain(inputIndex, clip, dur, delay) {
 
 function buildGraph(plan) {
   const { width, height, fps, duration, main, overlays, textList, loudnorm } = plan
+  const audio = !plan.frame
+  const frameScale = plan.frame?.width ? `,scale=${plan.frame.width}:-2` : ''
   const parts = []
   parts.push(`color=c=black:s=${width}x${height}:r=${fpsArg(fps)}:d=${sec(duration)},format=yuv420p[base]`)
   main.forEach((clip, index) => {
-    const dur = clip.out - clip.in
+    const dur = clipDuration(clip)
     parts.push(`${videoChain(`[${index}:v]`, clip, width, height, fps, false)}[mv${index}]`)
-    parts.push(`${audioChain(index, clip, dur, 0)}[ma${index}]`)
+    if (audio) parts.push(`${audioChain(index, clip, dur, 0)}[ma${index}]`)
   })
   parts.push(`${main.map((_, index) => `[mv${index}]`).join('')}concat=n=${main.length}:v=1:a=0[mainv]`)
-  parts.push(`${main.map((_, index) => `[ma${index}]`).join('')}concat=n=${main.length}:v=0:a=1[maina]`)
+  if (audio) {
+    parts.push(`${main.map((_, index) => `[ma${index}]`).join('')}concat=n=${main.length}:v=0:a=1[maina]`)
+  }
   parts.push('[base][mainv]overlay=0:0:eof_action=pass[v0]')
 
   let current = '[v0]'
   const overlayAudio = []
   overlays.forEach((clip, index) => {
     const input = main.length + index
-    const dur = clip.out - clip.in
+    const dur = clipDuration(clip)
     const end = (clip.start || 0) + dur
     // ov/oa идут сквозным индексом по всем клипам всех оверлеев.
     // Прозрачные поля нужны, чтобы нижние дорожки были видны вокруг врезки.
@@ -307,7 +353,7 @@ function buildGraph(plan) {
     const enable = esc(`between(t,${sec(clip.start || 0)},${sec(end)})`)
     parts.push(`${current}[ov${index}]overlay=0:0:enable='${enable}':eof_action=pass${next}`)
     current = next
-    if (!clip.muted && clip.hasAudio) {
+    if (audio && !clip.muted && clip.hasAudio) {
       parts.push(`${audioChain(input, clip, dur, clip.start || 0)}[oa${index}]`)
       overlayAudio.push(`[oa${index}]`)
     }
@@ -316,10 +362,11 @@ function buildGraph(plan) {
   if (textList) {
     const input = main.length + overlays.length
     parts.push(`[${input}:v]fps=${fpsArg(fps)},format=rgba,setpts=PTS-STARTPTS[textv]`)
-    parts.push(`${current}[textv]overlay=0:0:eof_action=pass,format=yuv420p[outv]`)
+    parts.push(`${current}[textv]overlay=0:0:eof_action=pass,format=yuv420p${frameScale}[outv]`)
   } else {
-    parts.push(`${current}format=yuv420p[outv]`)
+    parts.push(`${current}format=yuv420p${frameScale}[outv]`)
   }
+  if (!audio) return parts.join(';')
 
   if (overlayAudio.length) {
     parts.push(`[maina]apad=whole_dur=${sec(duration)}[maina2]`)
@@ -352,6 +399,84 @@ function parseSpeed(value) {
   return Number.isFinite(n) && n > 0 ? n : null
 }
 
+/** Один кадр проекта на момент plan.frame.time в JPEG (без звука). */
+export async function renderFrame(plan, output) {
+  mkdirSync(path.dirname(output), { recursive: true })
+  const args = ['-hide_banner', '-loglevel', 'error', '-y']
+  for (const clip of plan.main) args.push('-i', clip.path)
+  for (const clip of plan.overlays) {
+    if (/\.webm$/i.test(clip.path)) args.push('-c:v', 'libvpx-vp9')
+    args.push('-i', clip.path)
+  }
+  if (plan.textList) args.push('-f', 'concat', '-safe', '0', '-i', plan.textList)
+  args.push(
+    '-filter_complex',
+    buildGraph(plan),
+    '-map',
+    '[outv]',
+    '-ss',
+    sec(plan.frame.time),
+    '-frames:v',
+    '1',
+    '-q:v',
+    '3',
+    output,
+  )
+  await spawnProcess('ffmpeg', args)
+  return { output }
+}
+
+/**
+ * Запускает один произвольный (уже проверенный) вызов ffmpeg. Делит очередь с рендером:
+ * одновременно работает только одна тяжёлая задача, её можно отменить через cancel_render.
+ */
+export function runJob(args, { output, timeoutMs = 20 * 60 * 1000 } = {}) {
+  if (active) return Promise.reject(new Error('Экспорт или другая задача ffmpeg уже выполняется'))
+  mkdirSync(path.dirname(output), { recursive: true })
+  return new Promise((resolve, reject) => {
+    const child = spawn('ffmpeg', args, { stdio: ['ignore', 'ignore', 'pipe'] })
+    let stderr = ''
+    let settled = false
+    let finishWait = () => {}
+    const finished = new Promise((done) => {
+      finishWait = done
+    })
+    const job = { child, cancelled: false, finished, output }
+    active = job
+    const timer = setTimeout(() => {
+      job.timedOut = true
+      child.kill('SIGKILL')
+    }, timeoutMs)
+    const settle = (err) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      if (active === job) active = null
+      if (err) removeFile(output)
+      if (job.cancelled && err) {
+        const error = new Error('Задача отменена')
+        error.cancelled = true
+        reject(error)
+      } else if (job.timedOut) {
+        reject(new Error(`Превышено время ожидания (${Math.round(timeoutMs / 60000)} мин)`))
+      } else if (err) reject(err)
+      else resolve({ output })
+      finishWait({ cancelled: Boolean(job.cancelled && err) })
+    }
+    child.stderr.on('data', (chunk) => {
+      stderr = tail(stderr, chunk, 20000)
+    })
+    child.on('error', (err) => settle(err.code === 'ENOENT' ? new Error('ffmpeg не найден в PATH') : err))
+    child.on('close', (code) => {
+      if (code === 0) settle(null)
+      else
+        settle(
+          new Error(stderr.trim().split('\n').slice(-6).join('\n') || `ffmpeg завершился с кодом ${code}`),
+        )
+    })
+  })
+}
+
 let active = null
 
 export function requestCancel() {
@@ -367,6 +492,33 @@ function removeFile(file) {
   } catch {
     // файла могло не появиться
   }
+}
+
+/** Параметры кодирования видео по выбранному кодеку. */
+export function videoEncodeArgs(plan) {
+  const codec = plan.videoCodec || 'libx264'
+  const rate = plan.videoBitrate ? ['-b:v', plan.videoBitrate] : ['-crf', String(plan.crf)]
+  if (codec === 'libx265') {
+    return ['-c:v', 'libx265', '-preset', plan.preset, ...rate, '-pix_fmt', 'yuv420p', '-tag:v', 'hvc1']
+  }
+  if (codec === 'libvpx-vp9') {
+    return [
+      '-c:v',
+      'libvpx-vp9',
+      ...(plan.videoBitrate ? rate : ['-crf', String(plan.crf), '-b:v', '0']),
+      '-pix_fmt',
+      'yuv420p',
+    ]
+  }
+  if (codec === 'prores_ks') return ['-c:v', 'prores_ks', '-profile:v', '3', '-pix_fmt', 'yuv422p10le']
+  return ['-c:v', 'libx264', '-preset', plan.preset, ...rate, '-pix_fmt', 'yuv420p']
+}
+
+export function audioEncodeArgs(plan) {
+  const codec = plan.videoCodec || 'libx264'
+  if (codec === 'libvpx-vp9') return ['-c:a', 'libopus', '-b:a', plan.audioBitrate]
+  if (codec === 'prores_ks') return ['-c:a', 'pcm_s16le']
+  return ['-c:a', 'aac', '-b:a', plan.audioBitrate]
 }
 
 export function render(plan) {
@@ -387,18 +539,8 @@ export function render(plan) {
     '[outv]',
     '-map',
     '[outa]',
-    '-c:v',
-    'libx264',
-    '-preset',
-    plan.preset,
-    '-crf',
-    String(plan.crf),
-    '-pix_fmt',
-    'yuv420p',
-    '-c:a',
-    'aac',
-    '-b:a',
-    plan.audioBitrate,
+    ...videoEncodeArgs(plan),
+    ...audioEncodeArgs(plan),
     '-t',
     sec(plan.duration),
     '-movflags',

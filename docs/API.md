@@ -27,7 +27,7 @@
 | `move` | `move_clip` | порядок на main |
 | `moveClipToTrack` | `move_clip_to_track` | перенос между дорожками |
 | `addOverlayTrack`, `removeOverlayTrack` | `add_overlay_track`, `remove_overlay_track` | управление оверлей-дорожками |
-| `setClip`, `setClips` | `set_clip`, `set_clips` | scale, x, y, region, volume, muted, fadeIn, fadeOut, name, start |
+| `setClip`, `setClips` | `set_clip`, `set_clips` | scale, x, y, region, speed, vfilters, afilters, volume, muted, fadeIn, fadeOut, name, start |
 | `detectSilence`, `removeSilence` | `detect_silence`, `remove_silence` | поиск и вырезание пауз |
 | `setCanvas` | `set_canvas` | размер и fps холста |
 | `addText`, `setText`, `removeText`, `setStyle` | `add_text`, `set_text`, `remove_text`, `set_style` | подписи и стили |
@@ -40,7 +40,7 @@
 | `undo`, `redo` | `undo`, `redo` | история |
 | `render`, `cancelRender`, `preview` | `render`, `cancel_render`, `preview` | экспорт |
 
-Поля `setClip` и `setClips`: `scale` (1 — cover холста или области), `x` и `y` (сдвиг от центра в долях холста, а при `region` — в долях области), `volume` от 0 до 2, `muted`, `fadeIn`, `fadeOut` (секунды), `name`, `start` (только оверлей). `region`: `null` — весь кадр; `{x, y, w, h}` — доля холста от левого верхнего угла, клип закрывает только её. Верхняя половина `{x:0,y:0,w:1,h:0.5}`, нижняя `{x:0,y:0.5,w:1,h:0.5}`. `w` и `h` не меньше 0.05, `x+w` и `y+h` не больше 1.
+Поля `setClip` и `setClips`: `speed` (0,25–4, 1 — как в исходнике; клип на таймлайне становится короче или длиннее), `vfilters` и `afilters` (одна цепочка фильтров ffmpeg для видео и звука клипа, `null` очищает; без меток, без фильтров, меняющих длительность),  `scale` (1 — cover холста или области), `x` и `y` (сдвиг от центра в долях холста, а при `region` — в долях области), `volume` от 0 до 2, `muted`, `fadeIn`, `fadeOut` (секунды), `name`, `start` (только оверлей). `region`: `null` — весь кадр; `{x, y, w, h}` — доля холста от левого верхнего угла, клип закрывает только её. Верхняя половина `{x:0,y:0,w:1,h:0.5}`, нижняя `{x:0,y:0.5,w:1,h:0.5}`. `w` и `h` не меньше 0.05, `x+w` и `y+h` не больше 1.
 
 ## Модель данных
 ```json

@@ -1,6 +1,18 @@
 import { round3 } from '../ffmpeg.js'
+import { checkClipFilters } from './ffmpeg-run.js'
 import { commit, getProject } from './history.js'
-import { OpError, findMedia, mustInt, mustNum, nextClipId, requireRegion } from './project.js'
+import {
+  OpError,
+  SPEED_MAX,
+  SPEED_MIN,
+  clipLength,
+  findMedia,
+  mustInt,
+  mustNum,
+  nextClipId,
+  requireRegion,
+  speedOf,
+} from './project.js'
 import { findClip, findClipAnywhere, parseTrack, trackById, trackOf } from './tracks.js'
 
 function bounds(inPoint, outPoint, duration) {
@@ -32,6 +44,15 @@ function clipPatch(patch, track) {
     if (Math.abs(y) > 4) throw new OpError('Смещение y слишком большое')
     clean.y = round3(y)
   }
+  if (patch.speed !== undefined) {
+    const speed = mustNum(patch.speed, 'speed')
+    if (speed < SPEED_MIN || speed > SPEED_MAX) {
+      throw new OpError(`Скорость должна быть от ${SPEED_MIN} до ${SPEED_MAX}`)
+    }
+    clean.speed = round3(speed)
+  }
+  if (patch.vfilters !== undefined) clean.vfilters = checkClipFilters(patch.vfilters, 'vfilters')
+  if (patch.afilters !== undefined) clean.afilters = checkClipFilters(patch.afilters, 'afilters')
   if (patch.region !== undefined) clean.region = requireRegion(patch.region)
   if (patch.volume !== undefined) {
     const volume = mustNum(patch.volume, 'volume')
@@ -107,8 +128,9 @@ export function split(clipId, t, track = 'main') {
     const trackId = trackOf(draft, track)
     const found = findClip(draft, clipId, trackId)
     const local = round3(mustNum(t, 't'))
-    const dur = round3(found.clip.out - found.clip.in)
-    const cut = round3(found.clip.in + local)
+    const speed = speedOf(found.clip)
+    const dur = round3(clipLength(found.clip))
+    const cut = round3(found.clip.in + local * speed)
     if (!(local > 0 && local < dur) || !(found.clip.in < cut && cut < found.clip.out)) {
       throw new OpError('Точка разреза должна быть внутри клипа')
     }
@@ -128,7 +150,7 @@ export function splitAt(timelineTime, track = 'main') {
   if (target.kind === 'ripple') {
     let acc = 0
     for (const clip of target.clips) {
-      const dur = round3(clip.out - clip.in)
+      const dur = round3(clipLength(clip))
       const next = round3(acc + dur)
       if (t > acc && t < next) return split(clip.id, round3(t - acc), trackId)
       acc = next
@@ -136,7 +158,7 @@ export function splitAt(timelineTime, track = 'main') {
   } else {
     for (const clip of target.clips) {
       const start = clip.start ?? 0
-      const dur = round3(clip.out - clip.in)
+      const dur = round3(clipLength(clip))
       if (t > start && t < round3(start + dur)) return split(clip.id, round3(t - start), trackId)
     }
   }
@@ -203,10 +225,16 @@ export function move(clipId, newIndex, track = 'main') {
   })
 }
 
+function dropEmpty(clip) {
+  if (clip.vfilters == null) delete clip.vfilters
+  if (clip.afilters == null) delete clip.afilters
+}
+
 export function setClip(clipId, patch) {
   return commit((draft) => {
     const found = findClipAnywhere(draft, clipId)
     Object.assign(found.clip, clipPatch(patch, found.track))
+    dropEmpty(found.clip)
     return found.clip
   })
 }
@@ -219,7 +247,40 @@ export function setClips(clipIds, patch) {
     if (clean.start !== undefined && found.some((item) => item.track.kind !== 'free')) {
       throw new OpError('start задаётся только для оверлей-дорожки')
     }
-    for (const item of found) Object.assign(item.clip, clean)
+    for (const item of found) {
+      Object.assign(item.clip, clean)
+      dropEmpty(item.clip)
+    }
     return found.map((item) => item.clip)
+  })
+}
+
+/**
+ * Меняет скорость всего проекта в `factor` раз: у каждого клипа скорость умножается на factor,
+ * старты оверлеев и подписи сдвигаются, чтобы всё осталось на своих местах относительно видео.
+ */
+export function scaleSpeed(factor) {
+  const f = mustNum(factor, 'factor')
+  if (!(f > 0)) throw new OpError('factor должен быть больше нуля')
+  return commit((draft) => {
+    const all = draft.tracks.flatMap((track) => track.clips.map((clip) => ({ clip, track })))
+    if (!all.length) throw new OpError('В проекте нет клипов')
+    for (const { clip } of all) {
+      const next = speedOf(clip) * f
+      if (next < SPEED_MIN - 1e-9 || next > SPEED_MAX + 1e-9) {
+        throw new OpError(`Клип ${clip.id}: скорость ${round3(next)} вне пределов ${SPEED_MIN}…${SPEED_MAX}`)
+      }
+    }
+    for (const { clip, track } of all) {
+      const next = round3(Math.min(SPEED_MAX, Math.max(SPEED_MIN, speedOf(clip) * f)))
+      if (next === 1) delete clip.speed
+      else clip.speed = next
+      if (track.kind === 'free') clip.start = round3((clip.start ?? 0) / f)
+    }
+    for (const text of draft.texts) {
+      text.start = round3(text.start / f)
+      text.end = round3(text.end / f)
+    }
+    return { factor: f, clips: all.length, texts: draft.texts.length }
   })
 }
