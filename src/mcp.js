@@ -43,7 +43,7 @@ How to work:
 7. Never edit files under the project's data folder directly; use the tools.
 8. Look at your work: get_frame shows the project at a time exactly as exported, get_media_frame and probe inspect source files. Speed: set_clip speed (0.25 to 4) per clip, scale_speed for the whole project. Effects: set_clip vfilters / afilters take an ffmpeg filter chain (check names with ffmpeg_help). ffmpeg_run makes a new file (stabilize, grade, music, generated backgrounds) from allowed folders and can import it with importAs; it never overwrites without overwrite: true and never touches project sources.`
 
-const mcp = new McpServer({ name: 'minicut', version: '0.1.0' }, { instructions: INSTRUCTIONS })
+const mcp = new McpServer({ name: 'minicut', version: '0.3.0' }, { instructions: INSTRUCTIONS })
 
 mcp.registerTool(
   'get_project',

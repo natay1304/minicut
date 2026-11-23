@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.0
 
 - Clip speed (0.25 to 4): field and presets (0.5× to 4×) in the clip panel, ×N badge on the timeline; project-wide speed change (`scale_speed`, form next to «Убрать паузы»); captions and overlays follow
 - Per-clip ffmpeg filter chains (`vfilters`, `afilters`) applied in export and preview
