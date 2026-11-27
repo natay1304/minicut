@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.1
 
 - Subtitle color: «Цвет — всем стилям» button; captions snap to each other and no longer overlap while dragging
 - Delete key removes the selected caption (click it on the caption lane first)
