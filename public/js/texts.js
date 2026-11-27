@@ -4,6 +4,7 @@ import { pausePlayback } from './playback.js'
 import { paintCanvas, paintCaptions } from './preview-canvas.js'
 import { showFrame } from './preview-players.js'
 import { styleMap, texts } from './project-model.js'
+import { selectOnly } from './selection.js'
 import { $, state } from './state.js'
 import { clamp, formatTime, round3 } from './util.js'
 
@@ -64,6 +65,7 @@ export function renderTextList() {
 }
 
 export function pickText(id) {
+  selectOnly(null)
   state.textId = id
   const text = texts().find((item) => item.id === id)
   renderTextList()
@@ -251,6 +253,22 @@ async function commitStyle() {
   }
 }
 
+/** Ставит выбранный цвет во все стили подписей (у проекта их может быть несколько). */
+async function applyColorToAllStyles() {
+  const color = $('style-color').value.trim()
+  if (!color) {
+    setStatus('Укажите цвет', true)
+    return
+  }
+  try {
+    for (const name of Object.keys(styleMap())) {
+      if (styleMap()[name]?.color !== color) await postOp('setStyle', { name, color })
+    }
+  } catch {
+    /* статус уже показан */
+  }
+}
+
 function bindStylePairs() {
   for (const key of ['style-x', 'style-y']) {
     const range = $(key)
@@ -284,6 +302,9 @@ export function bindTexts() {
   })
   $('style-color-pick').addEventListener('input', () => {
     $('style-color').value = $('style-color-pick').value
+  })
+  $('style-color-all').addEventListener('click', () => {
+    void applyColorToAllStyles()
   })
   bindStylePairs()
   $('style-form').addEventListener('input', () => previewStyleForm())

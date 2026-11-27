@@ -1,7 +1,8 @@
 // Дорожка подписей на таймлайне: подпись можно двигать и менять ей начало и конец мышью.
 import { postOp } from './api.js'
-import { nextRange } from './cue-math.js'
+import { avoidOverlap, nextRange } from './cue-math.js'
 import { hooks } from './hooks.js'
+import { texts } from './project-model.js'
 import { state } from './state.js'
 import { snapEdge } from './timeline-drag.js'
 import { renderTimeline, timeFromClientX } from './timeline.js'
@@ -22,10 +23,14 @@ export function startCueDrag(event, cue, mode) {
   hooks.pickText(cue.id)
   const origin = timeFromClientX(event.clientX)
   const orig = { start: cue.start, end: cue.end }
+  const others = texts().filter((item) => item.id !== cue.id)
   state.cueDrag = { id: cue.id, ...orig, snapTime: null }
   const onMove = (ev) => {
-    const next = nextRange(mode, orig, timeFromClientX(ev.clientX) - origin, (time) => snapEdge(time, cue.id))
-    state.cueDrag = { id: cue.id, ...next }
+    const next = nextRange(mode, orig, timeFromClientX(ev.clientX) - origin, (time) =>
+      snapEdge(time, cue.id, true),
+    )
+    const fixed = avoidOverlap(mode, orig, next, others)
+    state.cueDrag = { id: cue.id, ...fixed }
     state.drag = next.snapTime == null ? null : { snapTime: next.snapTime }
     renderTimeline()
   }

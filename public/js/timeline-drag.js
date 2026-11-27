@@ -1,7 +1,7 @@
 import { postOp } from './api.js'
 import { clipLength, speedOf } from './clip-time.js'
 import { hooks } from './hooks.js'
-import { clipById, displayTracks, mainClips, overlayClips, timelineSpan } from './project-model.js'
+import { clipById, displayTracks, mainClips, overlayClips, texts, timelineSpan } from './project-model.js'
 import { rangeSelect, selectOnly, toggleSelect } from './selection.js'
 import { $, state, trackRows } from './state.js'
 import { finishMainMove, finishOverlayMove } from './timeline-move.js'
@@ -16,7 +16,7 @@ import {
 } from './timeline.js'
 import { SNAP_PX, TRACK_H, clamp, round3 } from './util.js'
 
-export function snapEdge(time, ignoreId) {
+export function snapEdge(time, ignoreId, withCues = false) {
   const threshold = SNAP_PX / state.zoom
   let best = null
   let bestDist = threshold
@@ -25,6 +25,13 @@ export function snapEdge(time, ignoreId) {
     if (dist <= threshold && (best == null || dist < bestDist)) {
       bestDist = dist
       best = point
+    }
+  }
+  if (withCues) {
+    for (const cue of texts()) {
+      if (cue.id === ignoreId) continue
+      consider(cue.start)
+      consider(cue.end)
     }
   }
   consider(0)

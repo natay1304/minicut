@@ -49,8 +49,16 @@ export async function splitAtPlayhead() {
 }
 
 export async function removeSelected() {
+  if (!state.selectedIds.size && state.textId) {
+    try {
+      await postOp('removeText', { id: state.textId })
+    } catch {
+      /* статус уже показан */
+    }
+    return
+  }
   if (!state.selectedIds.size) {
-    setStatus('Сначала выберите клип', true)
+    setStatus('Сначала выберите клип или подпись', true)
     return
   }
   try {

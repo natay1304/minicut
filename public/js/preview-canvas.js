@@ -1,3 +1,4 @@
+import { speedOf } from './clip-time.js'
 import { placeImage } from './crop-math.js'
 import { hooks } from './hooks.js'
 import {
@@ -90,6 +91,11 @@ export function applyFrame(video, clip) {
   video.style.clipPath = `inset(${inset(top, image.height)} ${inset(right, image.width)} ${inset(bottom, image.height)} ${inset(left, image.width)})`
 }
 
+function speedTag(clip) {
+  const speed = Math.round(speedOf(clip) * 1000) / 1000
+  return speed === 1 ? '' : ` ×${speed}`
+}
+
 export function paintCanvas() {
   const total = mainDuration()
   if (total > 0) {
@@ -108,11 +114,11 @@ export function paintCanvas() {
   const parts = []
   if (loc) {
     const media = mediaById(loc.clip.mediaId)
-    parts.push(loc.clip.name || media?.name || loc.clip.id)
+    parts.push(`${loc.clip.name || media?.name || loc.clip.id}${speedTag(loc.clip)}`)
   }
   for (const over of overs)
     parts.push(
-      `${trackLabel(clipById(over.id)?.track.id || 'overlay')}: ${over.name || mediaById(over.mediaId)?.name || over.id}`,
+      `${trackLabel(clipById(over.id)?.track.id || 'overlay')}: ${over.name || mediaById(over.mediaId)?.name || over.id}${speedTag(over)}`,
     )
   stageMeta.textContent = parts.join(' · ')
   const hasVisual = mainClips().length > 0 || overlayClips().length > 0 || texts().length > 0

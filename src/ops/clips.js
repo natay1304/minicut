@@ -230,11 +230,45 @@ function dropEmpty(clip) {
   if (clip.afilters == null) delete clip.afilters
 }
 
+/**
+ * Применяет патч к клипу. Если у клипа главной дорожки меняется длина (скорость), подписи и старты оверлеев
+ * сдвигаются вместе с видео: то, что было после клипа, остаётся после него, то, что внутри, растягивается.
+ */
+function applyPatch(draft, found, clean) {
+  const main = found.track.kind === 'ripple'
+  const before = main ? clipLength(found.clip) : 0
+  let offset = 0
+  if (main) {
+    for (const clip of found.track.clips) {
+      if (clip === found.clip) break
+      offset += clipLength(clip)
+    }
+  }
+  Object.assign(found.clip, clean)
+  dropEmpty(found.clip)
+  if (!main || clean.speed === undefined) return
+  const after = clipLength(found.clip)
+  if (Math.abs(after - before) < 1e-9) return
+  const end = offset + before
+  const remap = (t) => {
+    if (t <= offset) return t
+    if (t >= end) return round3(t + after - before)
+    return round3(offset + ((t - offset) * after) / before)
+  }
+  for (const text of draft.texts) {
+    text.start = remap(text.start)
+    text.end = remap(text.end)
+  }
+  for (const track of draft.tracks) {
+    if (track.kind !== 'free') continue
+    for (const clip of track.clips) clip.start = remap(clip.start ?? 0)
+  }
+}
+
 export function setClip(clipId, patch) {
   return commit((draft) => {
     const found = findClipAnywhere(draft, clipId)
-    Object.assign(found.clip, clipPatch(patch, found.track))
-    dropEmpty(found.clip)
+    applyPatch(draft, found, clipPatch(patch, found.track))
     return found.clip
   })
 }
@@ -247,10 +281,7 @@ export function setClips(clipIds, patch) {
     if (clean.start !== undefined && found.some((item) => item.track.kind !== 'free')) {
       throw new OpError('start задаётся только для оверлей-дорожки')
     }
-    for (const item of found) {
-      Object.assign(item.clip, clean)
-      dropEmpty(item.clip)
-    }
+    for (const item of found) applyPatch(draft, item, clean)
     return found.map((item) => item.clip)
   })
 }

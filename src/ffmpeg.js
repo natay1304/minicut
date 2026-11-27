@@ -403,8 +403,12 @@ function parseSpeed(value) {
 export async function renderFrame(plan, output) {
   mkdirSync(path.dirname(output), { recursive: true })
   const args = ['-hide_banner', '-loglevel', 'error', '-y']
-  for (const clip of plan.main) args.push('-i', clip.path)
+  for (const clip of plan.main) {
+    if (clip.seek) args.push('-ss', sec(clip.seek))
+    args.push('-i', clip.path)
+  }
   for (const clip of plan.overlays) {
+    if (clip.seek) args.push('-ss', sec(clip.seek))
     if (/\.webm$/i.test(clip.path)) args.push('-c:v', 'libvpx-vp9')
     args.push('-i', clip.path)
   }

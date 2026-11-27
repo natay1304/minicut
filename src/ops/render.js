@@ -181,6 +181,47 @@ async function runRender(options, fixed = {}) {
   return { output: settings.output, duration: planned.duration }
 }
 
+const FRAME_LEAD = 1
+
+/**
+ * Для одного кадра нет смысла прогонять через фильтры весь проект: оставляем только куски клипов
+ * в окне [time - FRAME_LEAD, time + 0.04] и сдвигаем время так, чтобы окно началось с нуля.
+ * Возвращает null, если окно не покрыто главной дорожкой (тогда считаем кадр по полному плану).
+ */
+export function framePlan(planned, time) {
+  const from = Math.max(0, time - FRAME_LEAD)
+  const to = time + 0.04
+  const cut = (clip, start) => {
+    const length = (clip.out - clip.in) / clip.speed
+    const a = Math.max(start, from)
+    const b = Math.min(start + length, to)
+    if (!(b - a > 0.001)) return null
+    const inn = clip.in + (a - start) * clip.speed
+    const out = clip.in + (b - start) * clip.speed
+    // Читаем файл не с начала: -ss на входе сдвигает его время, поэтому in/out считаем от seek.
+    const seek = Math.max(0, inn - 1)
+    return {
+      ...clip,
+      seek: round3(seek),
+      in: round3(inn - seek),
+      out: round3(out - seek),
+      fadeIn: 0,
+      fadeOut: 0,
+      ...(clip.start == null ? {} : { start: round3(a - from) }),
+    }
+  }
+  let offset = 0
+  const main = []
+  for (const clip of planned.main) {
+    const piece = cut(clip, offset)
+    if (piece) main.push(piece)
+    offset += (clip.out - clip.in) / clip.speed
+  }
+  if (!main.length) return null
+  const overlays = planned.overlays.map((clip) => cut(clip, clip.start ?? 0)).filter(Boolean)
+  return { main, overlays, from, duration: round3(to - from) }
+}
+
 /** Один кадр проекта на секунде time таймлайна (как в экспорте, с подписями), JPEG в base64. */
 export async function frame(options = {}) {
   const draft = getProject()
@@ -194,24 +235,33 @@ export async function frame(options = {}) {
   const tmp = path.join(dataRoot(), 'tmp', randomBytes(6).toString('hex'))
   const output = path.join(tmp, 'frame.jpg')
   try {
+    const at = round3(Math.min(time, Math.max(0, planned.duration - 0.04)))
+    const win = framePlan(planned, at)
+    const base = win
+      ? { ...planned, main: win.main, overlays: win.overlays, duration: win.duration }
+      : planned
+    const shift = win ? win.from : 0
+    const texts = draft.texts
+      .filter((text) => !win || (text.end > shift && text.start < shift + win.duration))
+      .map((text) => ({ ...text, start: round3(text.start - shift), end: round3(text.end - shift) }))
     const textList = buildTextTrack({
       dir: tmp,
       width: draft.canvas.width,
       height: draft.canvas.height,
-      duration: planned.duration,
-      texts: draft.texts,
+      duration: base.duration,
+      texts,
       styles: draft.styles,
       pixelScale: 1,
     })
     await renderFrame(
       {
-        ...planned,
+        ...base,
         width: draft.canvas.width,
         height: draft.canvas.height,
         fps: draft.canvas.fps || 30,
         textList,
         loudnorm: false,
-        frame: { time: round3(Math.min(time, Math.max(0, planned.duration - 0.04))), width },
+        frame: { time: round3(at - shift), width },
       },
       output,
     )

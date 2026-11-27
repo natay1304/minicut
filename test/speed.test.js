@@ -131,3 +131,43 @@ test('экспорт: кодеки и несовместимые сочетан�
     assert.equal(info.streams.find((s) => s.type === 'video').codec, codec === 'libx265' ? 'hevc' : 'vp9')
   }
 })
+
+test('смена скорости клипа сдвигает подписи и оверлеи после него', { skip }, async () => {
+  const file = makeVideo(dir, 'b.mp4', 4)
+  await ops.newProject('speed-follow')
+  const media = await ops.importMedia(file)
+  const a = ops.addClip(media.id, 0, 4)
+  ops.addClip(media.id, 0, 4)
+  const text = ops.addText({ text: 'привет', start: 5, end: 7 })
+  const inside = ops.addText({ text: 'внутри', start: 1, end: 3 })
+  ops.setClip(a.id, { speed: 2 })
+  const texts = ops.getProject().texts
+  assert.equal(texts.find((t) => t.id === text.id).start, 3)
+  assert.equal(texts.find((t) => t.id === text.id).end, 5)
+  assert.equal(texts.find((t) => t.id === inside.id).start, 0.5)
+  assert.equal(texts.find((t) => t.id === inside.id).end, 1.5)
+})
+
+test('кадр: в окно попадают только нужные куски клипов', async () => {
+  const { framePlan } = await import('../src/ops/render.js')
+  const clip = (inn, out, speed, extra = {}) => ({
+    path: 'x',
+    in: inn,
+    out,
+    speed,
+    fadeIn: 0,
+    fadeOut: 0,
+    ...extra,
+  })
+  const planned = {
+    main: [clip(0, 10, 1), clip(0, 10, 2), clip(5, 15, 1)],
+    overlays: [clip(0, 10, 1, { start: 14 })],
+    duration: 25,
+  }
+  const win = framePlan(planned, 12)
+  assert.equal(win.from, 11)
+  assert.equal(win.main.length, 1)
+  assert.deepEqual([win.main[0].seek, win.main[0].in, win.main[0].out], [1, 1, 3.08])
+  assert.equal(win.overlays.length, 0)
+  assert.equal(framePlan({ ...planned, duration: 40 }, 30), null)
+})

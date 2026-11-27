@@ -2,11 +2,13 @@ import { clipById, texts, tracks } from './project-model.js'
 import { state } from './state.js'
 
 export function selectOnly(id) {
+  state.textId = null
   state.selectedIds = new Set(id ? [id] : [])
   state.primaryId = id || null
 }
 
 export function toggleSelect(id) {
+  state.textId = null
   if (state.selectedIds.has(id)) {
     state.selectedIds.delete(id)
     if (state.primaryId === id) state.primaryId = [...state.selectedIds][0] || null
@@ -27,6 +29,7 @@ export function rangeSelect(id) {
   let a = ids.indexOf(primary.clip.id)
   let b = ids.indexOf(id)
   if (a > b) [a, b] = [b, a]
+  state.textId = null
   const next = new Set(state.selectedIds)
   for (let i = a; i <= b; i++) next.add(ids[i])
   state.selectedIds = next

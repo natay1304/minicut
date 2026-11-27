@@ -1,10 +1,19 @@
 import { postOp, request } from './api.js'
-import { SPEED_MAX, SPEED_MIN, speedOf } from './clip-time.js'
+import { SPEED_MAX, SPEED_MIN, formatSpeed, speedOf } from './clip-time.js'
 import { FRAME_BOTTOM, FRAME_TOP } from './crop-math.js'
 import { hooks } from './hooks.js'
 import { paintCanvas } from './preview-canvas.js'
 import { frontVideo } from './preview-players.js'
-import { clipById, locate, mainDuration, primaryClip, trackLabel, viewClip } from './project-model.js'
+import {
+  clipById,
+  locate,
+  mainClips,
+  mainDuration,
+  overlayClips,
+  primaryClip,
+  trackLabel,
+  viewClip,
+} from './project-model.js'
 import { $, overlayVideos, state } from './state.js'
 import { fillStyleForm, fillTextForm, renderTextList } from './texts.js'
 import { CLIP_LIMITS, clamp, round3 } from './util.js'
@@ -44,7 +53,33 @@ function clipHeading() {
   return `${trackName} · ${clip.name || clip.id}${extra}`
 }
 
+function fillHeading() {
+  const heading = $('clip-heading')
+  heading.textContent = clipHeading()
+  const clip = primaryClip()
+  if (!clip || speedOf(clip) === 1) return
+  const badge = document.createElement('span')
+  badge.className = 'clip-speed-badge'
+  badge.textContent = formatSpeed(clip)
+  heading.append(' ', badge)
+}
+
+/** Текущая скорость проекта: общая, если у всех клипов одна, иначе диапазон. */
+function renderProjectSpeed() {
+  const el = $('speed-now')
+  const speeds = [...mainClips(), ...overlayClips()].map((clip) => round3(speedOf(clip)))
+  if (!speeds.length) {
+    el.textContent = ''
+    return
+  }
+  const min = Math.min(...speeds)
+  const max = Math.max(...speeds)
+  el.textContent =
+    min === max ? `Сейчас у всех клипов ×${min}` : `Сейчас скорости разные: от ×${min} до ×${max}`
+}
+
 export function renderInspector() {
+  renderProjectSpeed()
   fillClipForm()
   renderTextList()
   fillTextForm()
@@ -63,7 +98,7 @@ export function fillClipForm() {
   }
   empty.hidden = true
   form.hidden = false
-  $('clip-heading').textContent = clipHeading()
+  fillHeading()
   $('clip-delete').textContent = state.selectedIds.size > 1 ? 'Удалить выбранные' : 'Удалить'
   if (form.contains(document.activeElement)) {
     hooks.syncCrop?.()

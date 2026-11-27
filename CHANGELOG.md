@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Subtitle color: «Цвет — всем стилям» button; captions snap to each other and no longer overlap while dragging
+- Delete key removes the selected caption (click it on the caption lane first)
+- Clip panel: speed is at the top and in the heading (×N); project speed shows the current value; changing the speed of a main-track clip now moves the captions and overlay starts with the video (before, they stayed on the old timeline and drifted)
+
 ## 0.3.0
 
 - Clip speed (0.25 to 4): field and presets (0.5× to 4×) in the clip panel, ×N badge on the timeline; project-wide speed change (`scale_speed`, form next to «Убрать паузы»); captions and overlays follow
